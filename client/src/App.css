@@ -1,0 +1,94 @@
+@import "tailwindcss";
+#root {
+  /* margin: 0 auto;
+  padding: 2rem;
+  text-align: center; */
+  --color1:#081B29;
+  --color2:#FFFFAA
+}
+.bg-main {
+  background-color: #081B29;
+}
+.bg-edit {
+  background-color: #0d3654;
+}
+
+.clr-gold {
+  color:#FFFFAA ;
+}
+.bg-gold {
+  background-color:#FFFFAA ;
+}
+.active {
+  color: #FFFF;
+  background-color: #EA6001;
+}
+.bg-orange{
+    background-color: #EA6001;
+
+
+}
+.clr-main {
+  color: #081B29;
+}
+@media print {
+  body * {
+    visibility: hidden; /* يخفي كل شيء */
+  }
+
+  .label, .label * {
+    visibility: visible; /* يظهر الملصق فقط */
+  }
+
+  .label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60mm; /* حجم الملصق */
+    padding: 5mm;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+
+
+/*
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+} */

@@ -1,0 +1,51 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+/*
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale; */
+}
+
+.h-large{
+  height: 120% ;
+}
+
+
+.orders-grid {
+  display: grid;
+  grid-template-columns:
+    40px    /* التاريخ */
+    100px   /* التاريخ */
+    200px   /* الباركود */
+    170px   /* العنوان */
+    170px   /* المرسل إليه */
+    100px    /* الحالة */
+    80px    /* الشركة */
+    100px   /* المندوب */
+    80px    /* المبلغ */
+    130px;  /* الأمر */
+}
+
+.orders-cell {
+  border-inline-start: 2px solid #ccc;
+  padding: 6px;
+  text-align: center;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* white-space: nowrap; */
+  /* overflow: hidden; */
+  /* text-overflow: ellipsis; */
+}
+
+
+

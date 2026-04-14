@@ -1,0 +1,72 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { loginUser } from "./services/authService";
+
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(""); // reset error
+
+    try {
+      const res = await loginUser(email, password);
+
+      console.log("RES:", res);
+
+      if (!res?.user) {
+        throw new Error("User missing in response");
+      }
+
+      localStorage.setItem("user", JSON.stringify(res.user));
+      localStorage.setItem("token", res.token);
+
+      if (res.user.role === "admin") navigate("/");
+      else navigate("/orders");
+      console.log("FULL RES:", res);
+    } catch (err) {
+      setError(err.message || "حدث خطأ أثناء تسجيل الدخول");
+    }
+  };
+
+  return (
+    <div className="w-full flex justify-center items-center h-screen bg-main">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-amber-50 rounded-lg text-center p-4 m-2 flex flex-col text-black"
+      >
+        <label>الايميل</label>
+        <input
+          type="email"
+          placeholder="ادخل الايميل"
+          className="border p-1 rounded-lg my-2 w-[300px]"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+
+        <label>الباسورد</label>
+        <input
+          type="password"
+          placeholder="الباسورد"
+          className="border p-1 rounded-lg my-2 w-[300px]"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+
+        {error && <p className="text-red-500">{error}</p>}
+
+        <button
+          type="submit"
+          className="bg-black text-white rounded-lg py-1 mt-3"
+        >
+          Login
+        </button>
+      </form>
+    </div>
+  );
+}
