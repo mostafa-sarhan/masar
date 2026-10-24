@@ -1,5 +1,5 @@
 // Courier/company fee overrides for report pages. Empty = server default (shown as placeholder).
-export default function FeeInputs({ value, onChange, defaults, onApply, showCompany = true }) {
+export default function FeeInputs({ value, onChange, defaults, onApply, showCourier = true, showCompany = true }) {
   const input = (name, label) => (
     <>
       <span className="flex items-center">{label}</span>
@@ -16,7 +16,7 @@ export default function FeeInputs({ value, onChange, defaults, onApply, showComp
   );
   return (
     <>
-      {input("courierFee", "عمولة المندوب:")}
+      {showCourier && input("courierFee", "عمولة المندوب:")}
       {showCompany && input("companyFee", "عمولة الشركة:")}
     </>
   );

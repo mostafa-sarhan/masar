@@ -30,9 +30,9 @@ export default function Company() {
         sheetName: "كشف الحساب",
         summary: [
           ["تاريخ البداية:", from, "", "", "", "المبلغ المستلم:", money.deliveredTotal],
-          ["تاريخ النهاية:", to, "", "", "", "المتبقي بعد خصم عمولة المندوب:", money.afterCourier],
+          ["تاريخ النهاية:", to, "", "", "", "عمولة الشركة:", money.companyCommission],
           ["إجمالي الأوردرات:", report.total.count, "", "", "", "فلوس التاجر بعد الخصم:", money.merchantNet],
-          ["عمولة المندوب:", usedFees.courier, "عمولة الشركة:", usedFees.company, "", "ربح الشركة:", money.companyCommission],
+          ["عمولة الشركة لكل أوردر:", usedFees.company],
           ...Object.keys(STATUS_LABELS).map((s) => [`${statusLabel(s)}:`, report.byStatus[s]?.count ?? 0, "المبلغ:", report.byStatus[s]?.amount ?? 0]),
         ],
         columns: [
@@ -63,7 +63,7 @@ export default function Company() {
           <span>الى: </span>
           <input type="date" className="border p-2 rounded" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
-        <FeeInputs value={feeInput} onChange={setFeeInput} defaults={usedFees} onApply={() => setFees(feeInput)} />
+        <FeeInputs value={feeInput} onChange={setFeeInput} defaults={usedFees} onApply={() => setFees(feeInput)} showCourier={false} />
       </div>
 
       {/* Summary */}
@@ -78,10 +78,8 @@ export default function Company() {
           ))}
           {[
             ["المبلغ المستلم", money.deliveredTotal],
-            ["عمولة المندوب", money.courierCommission],
-            ["المتبقي بعد خصم عمولة المندوب", money.afterCourier],
+            ["عمولة الشركة", money.companyCommission],
             ["فلوس التاجر بعد الخصم", money.merchantNet],
-            ["ربح الشركة", money.companyCommission],
           ].map(([label, value]) => (
             <div key={label} className="p-4 rounded-lg text-center border">
               <p className="text-sm text-gray-500">{label}</p>

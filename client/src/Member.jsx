@@ -81,7 +81,7 @@ export default function Member() {
         <button className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded" onClick={() => setShowAdd(true)}>
           ➕ إضافة تاجر
         </button>
-        <FeeInputs value={fees} onChange={setFees} defaults={defaults} onApply={reload} />
+        <FeeInputs value={fees} onChange={setFees} defaults={defaults} onApply={reload} showCourier={false} />
       </div>
 
       {/* Orders by merchant */}
@@ -126,7 +126,6 @@ export default function Member() {
                 <th className="p-2 border">التاجر</th>
                 <th className="p-2 border">عدد المسلّم</th>
                 <th className="p-2 border">إجمالي المسلّم</th>
-                <th className="p-2 border">عمولة المندوب</th>
                 <th className="p-2 border">عمولة الشركة</th>
                 <th className="p-2 border">صافي التاجر</th>
               </tr>
@@ -137,7 +136,6 @@ export default function Member() {
                   <td className="p-2 font-bold">{merchant.name}</td>
                   <td className="p-2">{money.deliveredCount}</td>
                   <td className="p-2">{money.deliveredTotal} جنيه</td>
-                  <td className="p-2 text-yellow-400">{money.courierCommission} جنيه</td>
                   <td className="p-2 text-yellow-400">{money.companyCommission} جنيه</td>
                   <td className="p-2 text-green-500 font-bold">{money.merchantNet} جنيه</td>
                 </tr>
