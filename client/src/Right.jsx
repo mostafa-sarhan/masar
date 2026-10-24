@@ -1,8 +1,8 @@
 import { NavLink } from "react-router-dom";
-import { getUser } from "./services/session";
+import { useAuth } from "./AuthContext";
 
 export default function Right() {
-  const user = getUser();
+  const { user } = useAuth();
 
   return (
     <div className="py-8 flex flex-col items-center justify-center space-y-4  ">
@@ -20,7 +20,7 @@ export default function Right() {
       <NavLink to="/alldelivery" className="bg-white w-[85%] text-3xl p-2 rounded">
         قائمة المناديب
       </NavLink>
-      <NavLink to="/archife" className="bg-white w-[85%] text-3xl p-2 rounded">
+      <NavLink to="/archive" className="bg-white w-[85%] text-3xl p-2 rounded">
         الأرشيف
       </NavLink>
 

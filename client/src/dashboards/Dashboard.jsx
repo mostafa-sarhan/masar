@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import DashboardLatestOrders from "./DashboardLatestOrders";
 import { getOrderStats } from "../services/ordersApi";
+import { statusLabel } from "../utils/orderStatus";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -24,11 +25,11 @@ export default function Dashboard() {
     getOrderStats()
       .then((counts) =>
         setStats({
-          delivered: counts["تم التسليم"] || 0,
-          inProgress: counts["قيد التنفيذ"] || 0,
-          returned: counts["مرتجع"] || 0,
-          refused: counts["مرفوض"] || 0,
-          withDelivery: counts["مع المندوب"] || 0,
+          delivered: counts.delivered || 0,
+          inProgress: counts.pending || 0,
+          returned: counts.returned || 0,
+          refused: counts.refused || 0,
+          withDelivery: counts.with_courier || 0,
         })
       )
       .catch((error) => console.error("Error fetching stats:", error));
@@ -36,11 +37,11 @@ export default function Dashboard() {
 
   /* ===== Chart Data ===== */
   const chartData = [
-    { name: "تم التسليم", value: stats.delivered },
-    { name: "قيد التنفيذ", value: stats.inProgress },
-    { name: "مرتجع", value: stats.returned },
-    { name: "مرفوض", value: stats.refused },
-    { name: "مع المندوب", value: stats.withDelivery },
+    { name: statusLabel("delivered"), value: stats.delivered },
+    { name: statusLabel("pending"), value: stats.inProgress },
+    { name: statusLabel("returned"), value: stats.returned },
+    { name: statusLabel("refused"), value: stats.refused },
+    { name: statusLabel("with_courier"), value: stats.withDelivery },
   ];
 
   const COLORS = ["#22c55e", "#3b82f6", "#facc15", "#ef4444", "#8b5cf6"];
@@ -54,14 +55,14 @@ export default function Dashboard() {
         </h2>
 
         <div className="grid grid-cols-2 gap-4">
-          <StatesCard title="تم التسليم" value={stats.delivered} color="green" />
-          <StatesCard title="قيد التنفيذ" value={stats.inProgress} color="blue" />
-          <StatesCard title="مرتجع" value={stats.returned} color="yellow" />
-          <StatesCard title="مرفوض" value={stats.refused} color="red" />
+          <StatesCard title={statusLabel("delivered")} value={stats.delivered} color="green" />
+          <StatesCard title={statusLabel("pending")} value={stats.inProgress} color="blue" />
+          <StatesCard title={statusLabel("returned")} value={stats.returned} color="yellow" />
+          <StatesCard title={statusLabel("refused")} value={stats.refused} color="red" />
         </div>
 
         <StatesCard
-          title="مع المندوب"
+          title={statusLabel("with_courier")}
           value={stats.withDelivery}
           color="purple"
           full

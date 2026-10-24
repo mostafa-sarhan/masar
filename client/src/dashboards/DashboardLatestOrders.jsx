@@ -9,7 +9,7 @@ export default function DashboardLatestOrders() {
 
   useEffect(() => {
     getOrders({ limit: LATEST_COUNT })
-      .then((data) => setOrders(data.items))
+      .then(({ data }) => setOrders(data))
       .catch(console.error);
   }, []);
 

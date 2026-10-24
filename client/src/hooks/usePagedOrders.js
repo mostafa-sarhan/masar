@@ -11,7 +11,7 @@ export function usePagedOrders(params, reloadKey = 0) {
   useEffect(() => {
     let cancelled = false;
     getOrders(JSON.parse(key.slice(0, key.lastIndexOf("#"))))
-      .then((data) => !cancelled && setState({ key, data }))
+      .then(({ data, meta }) => !cancelled && setState({ key, data: { items: data, ...meta } }))
       .catch((err) => {
         console.error(err);
         if (!cancelled) setState({ key, data: EMPTY });

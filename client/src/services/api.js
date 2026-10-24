@@ -1,6 +1,14 @@
-import { getToken, clearSession } from "./session";
-
 export const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
+
+export class ApiError extends Error {
+  constructor(status, { code = "INTERNAL_ERROR", message = "Request failed", details, requestId } = {}) {
+    super(message);
+    this.status = status;
+    this.code = code;
+    this.details = details;
+    this.requestId = requestId;
+  }
+}
 
 function buildUrl(path, params) {
   const query = new URLSearchParams();
@@ -11,28 +19,43 @@ function buildUrl(path, params) {
   return `${API_URL}${path}${qs ? `?${qs}` : ""}`;
 }
 
-// JSON request to the API with the stored token. Throws Error(message) on failure.
-export async function api(path, { method = "GET", body, params } = {}) {
-  const token = getToken();
+async function send(path, { method = "GET", body, params } = {}) {
   const res = await fetch(buildUrl(path, params), {
     method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
+    credentials: "include", // httpOnly session cookies
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-
-  const data = await res.json().catch(() => null);
-
-  if (!res.ok) {
-    // Expired or invalid session: send the user back to login.
-    if (res.status === 401 && token) {
-      clearSession();
-      window.location.hash = "#/login";
-    }
-    throw new Error(data?.message || `حدث خطأ في السيرفر: ${res.status}`);
-  }
-
-  return data;
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, json?.error);
+  return json;
 }
+
+// One refresh at a time, shared by every request that hit an expired access token.
+let refreshing = null;
+const refreshSession = () => {
+  refreshing ||= send("/auth/refresh", { method: "POST" }).finally(() => (refreshing = null));
+  return refreshing;
+};
+
+let onSessionLost = () => {};
+export const setSessionLostHandler = (handler) => (onSessionLost = handler);
+
+// Full response: { data, meta? }. Retries once after refreshing an expired session.
+export async function request(path, options) {
+  try {
+    return await send(path, options);
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 401 || path.startsWith("/auth/")) throw err;
+    try {
+      await refreshSession();
+    } catch {
+      onSessionLost();
+      throw err;
+    }
+    return send(path, options);
+  }
+}
+
+// Just the data.
+export const api = async (path, options) => (await request(path, options)).data;

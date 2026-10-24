@@ -1,129 +1,90 @@
 import React, { useEffect, useState } from "react";
-import { exportOrders } from "./services/ordersApi";
-import { getMerchants, createMerchant } from "./services/resourcesApi";
+import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, getMerchantReport } from "./services/resourcesApi";
+import { errorMessage } from "./services/errors";
+import FeeInputs from "./FeeInputs";
+
+const COUNT_COLUMNS = ["delivered", "returned", "refused", "pending", "exchanged", "with_courier"];
 
 export default function Member() {
   const [merchants, setMerchants] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [report, setReport] = useState([]);
+  const [fees, setFees] = useState({ courierFee: "", companyFee: "" });
+  const [defaults, setDefaults] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [merchantName, setMerchantName] = useState("");
   const [adding, setAdding] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [newKey, setNewKey] = useState(null); // { name, apiKey } shown once
 
-  const [companyFee, setCompanyFee] = useState(20);
-
-  // =====================
-  // Fetch data
-  // =====================
   useEffect(() => {
-    Promise.all([getMerchants(), exportOrders({ archived: "all" })])
-      .then(([merchantsData, ordersData]) => {
-        setMerchants(merchantsData || []);
-        setOrders(ordersData || []);
+    Promise.all([getMerchants(), getMerchantReport({ archived: "all", ...fees })])
+      .then(([merchantList, { data, meta }]) => {
+        setMerchants(merchantList);
+        setReport(data.filter((r) => r.merchant));
+        setDefaults(meta.fees);
       })
-      .catch((error) => alert(error.message))
+      .catch((err) => alert(errorMessage(err)))
       .finally(() => setLoading(false));
-  }, []);
+    // fees are applied on blur via reloadKey
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadKey]);
 
-  // =====================
-  // Add merchant
-  // =====================
+  const reload = () => setReloadKey((k) => k + 1);
+
   const handleAddMerchant = async () => {
     if (!merchantName.trim()) return alert("اسم التاجر مطلوب");
-
     try {
       setAdding(true);
-      const data = await createMerchant(merchantName);
-
-      // أضف التاجر مباشرة للـ state
-      setMerchants(prev => [...prev, data]);
+      const { merchant, apiKey } = await createMerchant(merchantName.trim());
+      setNewKey({ name: merchant.name, apiKey });
       setMerchantName("");
       setShowAdd(false);
-    } catch (error) {
-      console.error(error);
-      alert("حصل خطأ أثناء إضافة التاجر: " + error.message);
+      reload();
+    } catch (err) {
+      alert("حصل خطأ أثناء إضافة التاجر: " + errorMessage(err));
     } finally {
       setAdding(false);
     }
   };
 
-  // =====================
-  // Merchants summary
-  // =====================
-  const merchantSummary = merchants.map((merchant) => {
-    const merchantOrders = orders.filter((o) => o.company === merchant.name);
+  const handleRotate = async (m) => {
+    if (!window.confirm(`سيتم إيقاف المفتاح الحالي لـ ${m.name} فورًا. متابعة؟`)) return;
+    try {
+      const { apiKey } = await rotateMerchantKey(m._id);
+      setNewKey({ name: m.name, apiKey });
+      reload();
+    } catch (err) {
+      alert(errorMessage(err));
+    }
+  };
 
-    return {
-      id: merchant.id || merchant._id,
-      name: merchant.name,
-      total: merchantOrders.length,
-      delivered: merchantOrders.filter((o) => o.status === "تم التسليم").length,
-      returned: merchantOrders.filter((o) => o.status === "مرتجع").length,
-      rejected: merchantOrders.filter((o) => o.status === "مرفوض").length,
-      inProgress: merchantOrders.filter((o) => o.status === "قيد التنفيذ").length,
-      replacement: merchantOrders.filter((o) => o.status === "استبدال").length,
-      withCourier: merchantOrders.filter((o) => o.status === "مع المندوب").length,
-    };
-  });
-
-  const merchantMoneySummary = merchants.map((merchant) => {
-    const merchantOrders = orders.filter(
-      (o) => o.company === merchant.name && o.status === "تم التسليم"
-    );
-
-    const deliveredCount = merchantOrders.length;
-    const deliveredTotal = merchantOrders.reduce(
-      (sum, o) => sum + (Number(o.cost) || 0),
-      0
-    );
-
-    const companyCommission = deliveredCount * companyFee;
-    const merchantNet = deliveredTotal - companyCommission;
-
-    return {
-      id: merchant.id || merchant._id,
-      name: merchant.name,
-      deliveredCount,
-      deliveredTotal,
-      companyCommission,
-      merchantNet,
-    };
-  });
+  const handleRevoke = async (m) => {
+    if (!window.confirm(`إلغاء مفتاح ${m.name}؟ لن يتمكن من إرسال أوردرات.`)) return;
+    try {
+      await revokeMerchantKey(m._id);
+      reload();
+    } catch (err) {
+      alert(errorMessage(err));
+    }
+  };
 
   if (loading) {
-    return (
-      <div className="w-full h-full flex justify-center items-center text-xl">
-        جاري التحميل...
-      </div>
-    );
+    return <div className="w-full h-full flex justify-center items-center text-xl">جاري التحميل...</div>;
   }
 
   return (
     <div className="p-6 space-y-10">
-
       {/* Actions */}
       <div className="flex flex-wrap gap-4 items-center">
-        <button
-          className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
-          onClick={() => setShowAdd(true)}
-        >
+        <button className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded" onClick={() => setShowAdd(true)}>
           ➕ إضافة تاجر
         </button>
-
-        <div className="flex items-center gap-2">
-          <label className="font-bold">عمولة الشركة:</label>
-          <input
-            type="number"
-            value={companyFee}
-            onChange={(e) => setCompanyFee(Number(e.target.value))}
-            className="w-24 px-2 py-1 rounded bg-gray-800 border"
-          />
-          <span>جنيه / أوردر</span>
-        </div>
+        <FeeInputs value={fees} onChange={setFees} defaults={defaults} onApply={reload} />
       </div>
 
-      {/* Merchants Table */}
+      {/* Orders by merchant */}
       <div>
         <h2 className="text-2xl font-bold mb-4">ملخص أوردرات التجار</h2>
         <div className="overflow-x-auto rounded-lg border">
@@ -141,16 +102,13 @@ export default function Member() {
               </tr>
             </thead>
             <tbody>
-              {merchantSummary.map((m) => (
-                <tr key={m.id} className="border-b hover:bg-gray-800">
-                  <td className="p-2 font-bold">{m.name}</td>
-                  <td className="p-2">{m.total}</td>
-                  <td className="p-2 text-green-500">{m.delivered}</td>
-                  <td className="p-2 text-yellow-400">{m.returned}</td>
-                  <td className="p-2 text-red-500">{m.rejected}</td>
-                  <td className="p-2">{m.inProgress}</td>
-                  <td className="p-2">{m.replacement}</td>
-                  <td className="p-2">{m.withCourier}</td>
+              {report.map((r) => (
+                <tr key={r.merchant._id} className="border-b hover:bg-gray-800">
+                  <td className="p-2 font-bold">{r.merchant.name}</td>
+                  <td className="p-2">{r.total.count}</td>
+                  {COUNT_COLUMNS.map((s) => (
+                    <td key={s} className="p-2">{r.byStatus[s]?.count ?? 0}</td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -158,7 +116,7 @@ export default function Member() {
         </div>
       </div>
 
-      {/* Money Table */}
+      {/* Money by merchant (server formula) */}
       <div>
         <h2 className="text-2xl font-bold mb-4">الحسابات المالية للتجار</h2>
         <div className="overflow-x-auto border rounded-lg">
@@ -168,18 +126,20 @@ export default function Member() {
                 <th className="p-2 border">التاجر</th>
                 <th className="p-2 border">عدد المسلّم</th>
                 <th className="p-2 border">إجمالي المسلّم</th>
+                <th className="p-2 border">عمولة المندوب</th>
                 <th className="p-2 border">عمولة الشركة</th>
                 <th className="p-2 border">صافي التاجر</th>
               </tr>
             </thead>
             <tbody>
-              {merchantMoneySummary.map((m) => (
-                <tr key={m.id} className="border-b hover:bg-gray-800">
-                  <td className="p-2 font-bold">{m.name}</td>
-                  <td className="p-2">{m.deliveredCount}</td>
-                  <td className="p-2">{m.deliveredTotal} جنيه</td>
-                  <td className="p-2 text-yellow-400">{m.companyCommission} جنيه</td>
-                  <td className="p-2 text-green-500 font-bold">{m.merchantNet} جنيه</td>
+              {report.map(({ merchant, money }) => (
+                <tr key={merchant._id} className="border-b hover:bg-gray-800">
+                  <td className="p-2 font-bold">{merchant.name}</td>
+                  <td className="p-2">{money.deliveredCount}</td>
+                  <td className="p-2">{money.deliveredTotal} جنيه</td>
+                  <td className="p-2 text-yellow-400">{money.courierCommission} جنيه</td>
+                  <td className="p-2 text-yellow-400">{money.companyCommission} جنيه</td>
+                  <td className="p-2 text-green-500 font-bold">{money.merchantNet} جنيه</td>
                 </tr>
               ))}
             </tbody>
@@ -187,33 +147,15 @@ export default function Member() {
         </div>
       </div>
 
-      {/* Add Merchant Modal */}
+      {/* Add merchant */}
       {showAdd && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 p-6 rounded-xl w-[350px]">
             <h3 className="text-xl font-bold mb-4">إضافة تاجر جديد</h3>
-
-            <input
-              type="text"
-              placeholder="اسم التاجر"
-              value={merchantName}
-              onChange={(e) => setMerchantName(e.target.value)}
-              className="w-full mb-4 px-3 py-2 rounded bg-gray-800 border"
-            />
-
+            <input type="text" placeholder="اسم التاجر" value={merchantName} onChange={(e) => setMerchantName(e.target.value)} className="w-full mb-4 px-3 py-2 rounded bg-gray-800 border" />
             <div className="flex justify-end gap-3">
-              <button
-                className="px-4 py-2 bg-gray-600 rounded"
-                onClick={() => setShowAdd(false)}
-              >
-                إلغاء
-              </button>
-
-              <button
-                disabled={adding}
-                className="px-4 py-2 bg-green-600 rounded"
-                onClick={handleAddMerchant}
-              >
+              <button className="px-4 py-2 bg-gray-600 rounded" onClick={() => setShowAdd(false)}>إلغاء</button>
+              <button disabled={adding} className="px-4 py-2 bg-green-600 rounded" onClick={handleAddMerchant}>
                 {adding ? "جاري الحفظ..." : "حفظ"}
               </button>
             </div>
@@ -221,7 +163,22 @@ export default function Member() {
         </div>
       )}
 
-      {/* Merchants Info Table */}
+      {/* New API key: shown once */}
+      {newKey && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-900 p-6 rounded-xl w-[480px] space-y-4">
+            <h3 className="text-xl font-bold">مفتاح API لـ {newKey.name}</h3>
+            <p className="text-yellow-400 text-sm">انسخ المفتاح الآن، لن يظهر مرة أخرى.</p>
+            <code className="block bg-gray-800 p-3 rounded break-all select-all" dir="ltr">{newKey.apiKey}</code>
+            <div className="flex justify-end gap-3">
+              <button className="px-4 py-2 bg-blue-600 rounded" onClick={() => navigator.clipboard?.writeText(newKey.apiKey)}>نسخ</button>
+              <button className="px-4 py-2 bg-gray-600 rounded" onClick={() => setNewKey(null)}>تم</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Merchants + keys */}
       <div className="mt-10">
         <h2 className="text-2xl font-bold mb-4">بيانات التجار</h2>
         <div className="overflow-x-auto border rounded-lg">
@@ -231,30 +188,26 @@ export default function Member() {
                 <th className="p-2 border">اسم التاجر</th>
                 <th className="p-2 border">API Key</th>
                 <th className="p-2 border">تاريخ الإنشاء</th>
+                <th className="p-2 border">المفتاح</th>
               </tr>
             </thead>
-
             <tbody>
               {merchants.length > 0 ? (
                 merchants.map((m) => (
-                  <tr key={m._id || m.id} className="border-b hover:bg-gray-800">
+                  <tr key={m._id} className="border-b hover:bg-gray-800">
                     <td className="p-2 font-bold">{m.name}</td>
-                    <td className="p-2 text-yellow-400 break-all">{m.apiKey}</td>
-                    <td className="p-2">
-                      {m.createdAt
-                        ? new Date(m.createdAt).toLocaleDateString("ar-EG", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "-"}
+                    <td className="p-2 text-yellow-400" dir="ltr">
+                      {m.hasActiveKey ? `${m.apiKeyPrefix}…` : m.apiKeyRevokedAt ? "ملغي" : "-"}
+                    </td>
+                    <td className="p-2">{m.createdAt ? new Date(m.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" }) : "-"}</td>
+                    <td className="p-2 space-x-2 space-x-reverse">
+                      <button className="px-2 py-1 bg-blue-600 rounded" onClick={() => handleRotate(m)}>{m.hasActiveKey ? "تغيير" : "إنشاء"}</button>
+                      {m.hasActiveKey && <button className="px-2 py-1 bg-red-600 rounded" onClick={() => handleRevoke(m)}>إلغاء</button>}
                     </td>
                   </tr>
                 ))
               ) : (
-                <tr>
-                  <td colSpan="3" className="p-4">لا يوجد تجار</td>
-                </tr>
+                <tr><td colSpan="4" className="p-4">لا يوجد تجار</td></tr>
               )}
             </tbody>
           </table>

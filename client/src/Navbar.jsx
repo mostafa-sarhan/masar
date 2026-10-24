@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import Logo from "/src/assets/logo.png";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { getUser, clearSession } from "./services/session";
+import { useAuth } from "./AuthContext";
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const user = getUser();
+  const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
 
-  const handleLogout = () => {
-    clearSession();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
     setOpen(false); // اقفل الموبايل menu بعد logout
   };

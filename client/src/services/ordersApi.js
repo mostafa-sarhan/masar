@@ -1,23 +1,18 @@
-import { api } from "./api";
+import { api, request } from "./api";
 
-// Filters accepted by the orders endpoints:
-// search, status, company, delivery, date, from, to, archived ("true" | "false" | "all")
+// Filters: search, status, merchant, courier, date, from, to, archived ("true" | "false" | "all")
 
-// Paginated: { items, total, page, pages, totalCost }
-export const getOrders = (params) => api("/orders", { params });
+// { data: orders, meta: { total, page, pages, totalCost } }
+export const getOrders = (params) => request("/orders", { params });
 
-// Every matching order (reports, printing, Excel)
-export const exportOrders = (params) => api("/orders/export", { params });
+// Admin only. { data, meta: { total, truncated } }
+export const exportOrders = (params) => request("/orders/export", { params });
 
-// { [status]: count }
 export const getOrderStats = () => api("/orders/stats");
-
-export const getCompanies = (params) => api("/orders/companies", { params });
-
 export const getOrderByBarcode = (barcode) => api(`/orders/barcode/${encodeURIComponent(barcode)}`);
-
-export const getOrdersByDelivery = (name) => api(`/orders/delivery/${encodeURIComponent(name)}`);
-
 export const createOrder = (order) => api("/orders", { method: "POST", body: order });
-
 export const updateOrder = (id, changes) => api(`/orders/${id}`, { method: "PATCH", body: changes });
+
+// { requested, updated, conflicts }
+export const bulkAssign = (orderIds, courier) => api("/orders/bulk/assign", { method: "POST", body: { orderIds, courier } });
+export const bulkStatus = (updates) => api("/orders/bulk/status", { method: "POST", body: { updates } });

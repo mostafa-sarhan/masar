@@ -1,29 +1,24 @@
-import React, { useEffect, useState } from "react";
-import { getCompanies } from "./services/ordersApi";
+import React, { useState } from "react";
 import { usePagedOrders } from "./hooks/usePagedOrders";
+import MerchantSelect from "./MerchantSelect";
 import Pagination from "./Pagination";
 import { OrdersHeader, OrderRow } from "./OrderRow";
-import { FINAL_STATUSES } from "./utils/orderStatus";
+import { FINAL_STATUSES, statusLabel } from "./utils/orderStatus";
 
 const PAGE_SIZE = 20;
 
 export default function Archive() {
-  const [companies, setCompanies] = useState([]);
   const [page, setPage] = useState(1);
 
   // 🔍 Filters (changing one goes back to page 1)
-  const [filters, setFilters] = useState({ company: "", status: "", date: "" });
-  const setFilter = (name) => (e) => {
-    setFilters((f) => ({ ...f, [name]: e.target.value }));
+  const [filters, setFilters] = useState({ merchant: "", status: "", date: "" });
+  const setFilter = (name) => (value) => {
+    setFilters((f) => ({ ...f, [name]: value }));
     setPage(1);
   };
-  const { company, status, date } = filters;
+  const { merchant, status, date } = filters;
 
   const { loading, ...result } = usePagedOrders({ archived: "true", ...filters, page, limit: PAGE_SIZE });
-
-  useEffect(() => {
-    getCompanies({ archived: "true" }).then(setCompanies).catch(console.error);
-  }, []);
 
   return (
     <div className="w-[98%] m-auto my-4">
@@ -31,21 +26,16 @@ export default function Archive() {
 
       {/* Filters */}
       <div className="w-full flex gap-4 mb-4 flex-wrap">
-        <select value={company} onChange={setFilter("company")} className="border rounded p-2 w-[200px]">
-          <option value="">اختر الشركة</option>
-          {companies.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+        <MerchantSelect value={merchant} onChange={setFilter("merchant")} className="border rounded p-2 w-[200px]" />
 
-        <select value={status} onChange={setFilter("status")} className="border rounded p-2 w-[200px]">
+        <select value={status} onChange={(e) => setFilter("status")(e.target.value)} className="border rounded p-2 w-[200px]">
           <option value="">اختر الحالة</option>
           {FINAL_STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>{statusLabel(s)}</option>
           ))}
         </select>
 
-        <input type="date" value={date} onChange={setFilter("date")} className="border rounded p-2 w-[200px]" />
+        <input type="date" value={date} onChange={(e) => setFilter("date")(e.target.value)} className="border rounded p-2 w-[200px]" />
       </div>
 
       {/* Summary */}
@@ -60,9 +50,7 @@ export default function Archive() {
         {loading ? (
           <p className="text-center my-4 text-xl">جاري تحميل الأوردرات المؤرشفة...</p>
         ) : result.items.length > 0 ? (
-          result.items.map((order, i) => (
-            <OrderRow key={order._id} order={order} index={(page - 1) * PAGE_SIZE + i + 1} />
-          ))
+          result.items.map((order, i) => <OrderRow key={order._id} order={order} index={(page - 1) * PAGE_SIZE + i + 1} />)
         ) : (
           <p className="text-center my-4">لا توجد أوردرات مؤرشفة</p>
         )}

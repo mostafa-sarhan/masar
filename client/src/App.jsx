@@ -4,14 +4,14 @@ import "./App.css";
 import Login from "./Login";
 import ProtectedRoute from "./ProtectedRoute";
 import MainLayout from "./MainLayout";
-import Dashbord from "./dashboards/Dashbord";
+import Dashboard from "./dashboards/Dashboard";
 import Services from "./Services";
 import Who from "./Who";
 import Neworder from "./Neworder";
 import Orders from "./Orders";
 import Adddelivery from "./Adddelivery";
 import Alldelivery from "./Alldelivery";
-import Archife from "./Archife";
+import Archive from "./Archive";
 import ReportDelivery from "./ReportDelivery";
 import Member from "./Member";
 import Company from "./Company";
@@ -32,14 +32,14 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<Dashbord />} />
+        <Route path="/" element={<Dashboard />} />
         <Route path="/services" element={<Services />} />
         <Route path="/who" element={<Who />} />
         <Route path="/neworder" element={<Neworder />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/adddelivery" element={<Adddelivery />} />
         <Route path="/alldelivery" element={<Alldelivery />} />
-        <Route path="/archife" element={<Archife />} />
+        <Route path="/archive" element={<Archive />} />
         <Route path="/reportdelivery" element={adminOnly(<ReportDelivery />)} />
         <Route path="/member" element={adminOnly(<Member />)} />
         <Route path="/company" element={adminOnly(<Company />)} />

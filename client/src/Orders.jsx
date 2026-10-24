@@ -1,61 +1,55 @@
-import React, { useEffect, useState } from "react";
-import ReactDOM from "react-dom/client";
-import { exportOrders, getCompanies, updateOrder } from "./services/ordersApi";
+import React, { useState } from "react";
+import { exportOrders, updateOrder } from "./services/ordersApi";
+import { errorMessage } from "./services/errors";
+import { useAuth } from "./AuthContext";
 import { usePagedOrders } from "./hooks/usePagedOrders";
-import { getUser } from "./services/session";
 import FormOrder from "./FormOrder";
-import PrintLabel from "./PrintLabel";
-import DeliverySelect from "./DeliverySelect";
+import CourierSelect from "./CourierSelect";
+import MerchantSelect from "./MerchantSelect";
 import Pagination from "./Pagination";
 import { OrdersHeader, OrderRow } from "./OrderRow";
-import { printOrdersTable } from "./printOrders";
+import { printLabel, printOrdersTable } from "./utils/print";
 import { convertArabicNumbersToEnglish } from "./utils/numberUtils";
-import { ORDER_STATUSES } from "./utils/orderStatus";
+import { ORDER_STATUSES, statusLabel } from "./utils/orderStatus";
 
 const PAGE_SIZE = 6;
 
-function handlePrint(order) {
-  const printRoot = document.createElement("div");
-  document.body.appendChild(printRoot);
-  ReactDOM.createRoot(printRoot).render(<PrintLabel order={order} />);
-}
-
 export default function Orders() {
-  const user = getUser();
-  const [companies, setCompanies] = useState([]);
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [editingOrder, setEditingOrder] = useState(null);
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
 
   // 🔍 Filters (changing one goes back to page 1)
-  const [filters, setFilters] = useState({ search: "", company: "", status: "", delivery: "", date: "" });
+  const [filters, setFilters] = useState({ search: "", merchant: "", status: "", courier: "", date: "" });
   const setFilter = (name) => (value) => {
     setFilters((f) => ({ ...f, [name]: value }));
     setPage(1);
   };
-  const { search, company, status, delivery, date } = filters;
+  const { search, merchant, status, courier, date } = filters;
 
   const { loading, ...result } = usePagedOrders({ ...filters, page, limit: PAGE_SIZE }, reloadKey);
 
-  useEffect(() => {
-    getCompanies().then(setCompanies).catch(console.error);
-  }, []);
-
-  const handleUpdate = async (data) => {
+  const handleUpdate = async (changes) => {
     try {
-      await updateOrder(editingOrder._id, data);
+      if (Object.keys(changes).length) await updateOrder(editingOrder._id, changes);
       setEditingOrder(null);
       setReloadKey((k) => k + 1);
     } catch (err) {
-      alert(err.message);
+      alert(errorMessage(err));
     }
   };
 
+  // Admins print everything that matches the filters; employees print the current page.
   const handlePrintTable = async () => {
     try {
-      printOrdersTable(await exportOrders(filters));
+      if (!isAdmin) return printOrdersTable(result.items);
+      const { data, meta } = await exportOrders(filters);
+      if (meta.truncated) alert(`سيتم طباعة أول ${data.length} من ${meta.total} أوردر`);
+      printOrdersTable(data);
     } catch (err) {
-      alert(err.message);
+      alert(errorMessage(err));
     }
   };
 
@@ -65,7 +59,7 @@ export default function Orders() {
       <div className="w-[98%] m-auto my-4 flex flex-wrap items-center gap-4">
         <input
           type="text"
-          placeholder="بحث برقم الهاتف أو الباركود"
+          placeholder="بحث برقم الهاتف أو الباركود (من البداية)"
           value={search}
           onChange={(e) => setFilter("search")(convertArabicNumbersToEnglish(e.target.value).replace(/\D/g, ""))}
           className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg"
@@ -74,18 +68,13 @@ export default function Orders() {
         <select value={status} onChange={(e) => setFilter("status")(e.target.value)} className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg">
           <option value="">اختر الحالة</option>
           {ORDER_STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>{statusLabel(s)}</option>
           ))}
         </select>
 
-        <select value={company} onChange={(e) => setFilter("company")(e.target.value)} className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg">
-          <option value="">اختر الشركة</option>
-          {companies.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+        <MerchantSelect value={merchant} onChange={setFilter("merchant")} className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg" />
 
-        <DeliverySelect value={delivery} onChange={setFilter("delivery")} />
+        <CourierSelect value={courier} onChange={setFilter("courier")} />
 
         <input type="date" value={date} onChange={(e) => setFilter("date")(e.target.value)} className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg" />
 
@@ -118,12 +107,12 @@ export default function Orders() {
               index={(page - 1) * PAGE_SIZE + i + 1}
               actions={
                 <>
-                  {user?.role === "admin" && (
+                  {isAdmin && (
                     <button className="bg-orange-400 px-3 py-1 rounded cursor-pointer" onClick={() => setEditingOrder(order)}>
                       تعديل
                     </button>
                   )}
-                  <button onClick={() => handlePrint(order)} className="bg-green-400 px-3 py-1 rounded cursor-pointer">
+                  <button onClick={() => printLabel(order)} className="bg-green-400 px-3 py-1 rounded cursor-pointer">
                     طباعة
                   </button>
                 </>
@@ -137,7 +126,7 @@ export default function Orders() {
 
       <Pagination page={page} pages={result.pages} onChange={setPage} />
 
-      {/* Edit Modal */}
+      {/* Edit Modal (admin) */}
       {editingOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-edit w-[90%] md:w-[600px] rounded-lg p-6 relative">
@@ -145,7 +134,7 @@ export default function Orders() {
               ✕
             </button>
             <h2 className="text-2xl font-bold mb-4 text-center">تعديل الطلب</h2>
-            <FormOrder initialData={editingOrder} onSubmit={handleUpdate} />
+            <FormOrder initialData={editingOrder} onSubmit={handleUpdate} role={user?.role} />
           </div>
         </div>
       )}

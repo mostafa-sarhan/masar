@@ -1,5 +1,6 @@
 import Barcode from "./Barcode";
 import { formatDate } from "./utils/dataUtils";
+import { statusLabel } from "./utils/orderStatus";
 
 // Header + row for the shared 10-column orders grid.
 export function OrdersHeader({ lastColumn = "ملاحظه" }) {
@@ -24,9 +25,9 @@ export function OrderRow({ order, index, status, actions }) {
         <span>{order.fullName}</span>
         <span className="text-sm">{order.phone}</span>
       </div>
-      <div className="orders-cell font-semibold">{status ?? order.status}</div>
-      <div className="orders-cell">{order.company}</div>
-      <div className="orders-cell">{order.delivery || "-"}</div>
+      <div className="orders-cell font-semibold">{status ?? statusLabel(order.status)}</div>
+      <div className="orders-cell">{order.merchant?.name || "-"}</div>
+      <div className="orders-cell">{order.courier?.name || "-"}</div>
       <div className="orders-cell font-bold">{order.cost}</div>
       <div className="orders-cell gap-2">{actions}</div>
     </div>

@@ -1,31 +1,26 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "./services/authService";
-import { saveSession } from "./services/session";
+import { useAuth } from "./AuthContext";
+import { errorMessage } from "./services/errors";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(""); // reset error
 
     try {
-      const res = await loginUser(email, password);
+      const user = await login(email, password);
 
-      if (!res?.user) {
-        throw new Error("User missing in response");
-      }
-
-      saveSession(res);
-
-      if (res.user.role === "admin") navigate("/");
+      if (user.role === "admin") navigate("/");
       else navigate("/orders");
     } catch (err) {
-      setError(err.message || "حدث خطأ أثناء تسجيل الدخول");
+      setError(errorMessage(err));
     }
   };
 
