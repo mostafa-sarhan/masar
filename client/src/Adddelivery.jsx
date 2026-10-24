@@ -1,31 +1,9 @@
 import React, { useState, useRef } from 'react';
-import Barcode from './Barcode';
 import PrintAllLabels from './PrintAllLabels';
 import DeliverySelect from './DeliverySelect';
-import { formatDate } from './utils/dataUtils';
-
-export const ORDERS_URL = "https://sys-shipping-backend.onrender.com/orders";
-
-// ==========================
-// helper fetch with token
-// ==========================
-const fetchWithToken = async (url, options = {}) => {
-  const token = localStorage.getItem("token");
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error("حدث خطأ في السيرفر");
-  }
-
-  return res.json();
-};
+import { OrdersHeader, OrderRow } from './OrderRow';
+import { getOrderByBarcode, updateOrder } from './services/ordersApi';
+import { PENDING, WITH_COURIER } from './utils/orderStatus';
 
 export default function AddDelivery() {
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -56,9 +34,9 @@ export default function AddDelivery() {
     }
 
     try {
-      const data = await fetchWithToken(`${ORDERS_URL}/barcode/${barcode}`);
+      const data = await getOrderByBarcode(barcode);
 
-      if (data.status !== "قيد التنفيذ") {
+      if (data.status !== PENDING) {
         alert("هذا المنتج لا يمكن إضافته لأنه غير متاح للإضافة");
         return;
       }
@@ -79,15 +57,7 @@ export default function AddDelivery() {
   // -----------------------
   const updateOrderDelivery = async (orderId, delivery) => {
     try {
-      const updatedOrder = await fetchWithToken(`${ORDERS_URL}/${orderId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          delivery,
-          status: "مع المندوب",
-        }),
-      });
-
-      return updatedOrder;
+      return await updateOrder(orderId, { delivery, status: WITH_COURIER });
     } catch (error) {
       console.error(error);
       alert("فشل تحديث المنتج في السيرفر");
@@ -187,45 +157,12 @@ export default function AddDelivery() {
         </div>
       </div>
 
-      <div className="orders-grid border-2 rounded-lg font-bold">
-        <div className="orders-cell">العدد</div>
-        <div className="orders-cell">التاريخ</div>
-        <div className="orders-cell">الباركود</div>
-        <div className="orders-cell">العنوان</div>
-        <div className="orders-cell">المرسل إليه</div>
-        <div className="orders-cell">الحالة</div>
-        <div className="orders-cell">الشركة</div>
-        <div className="orders-cell">المندوب</div>
-        <div className="orders-cell">المبلغ</div>
-        <div className="orders-cell">ملاحظه</div>
-      </div>
+      <OrdersHeader />
 
       <div className="my-2">
         {scannedOrders.length > 0 ? (
           scannedOrders.map((order, index) => (
-            <div key={index} className="w-full m-auto">
-              <div className="orders-grid border-x-2 border-t-2">
-                <div className="orders-cell">
-                  <span className="text-sm">{index + 1}</span>
-                </div>
-                <div className="orders-cell">
-                  <span className="text-sm">{formatDate(order.createdAt)}</span>
-                </div>
-                <div className="orders-cell">
-                  <Barcode value={order.barcode} />
-                </div>
-                <div className="orders-cell">{order.address}</div>
-                <div className="orders-cell">
-                  <span>{order.fullName}</span>
-                  <span className="text-sm">{order.phone}</span>
-                </div>
-                <div className="orders-cell font-semibold">{order.status}</div>
-                <div className="orders-cell">{order.company}</div>
-                <div className="orders-cell">{order.delivery || "-"}</div>
-                <div className="orders-cell font-bold">{order.cost}</div>
-                <div className="orders-cell"></div>
-              </div>
-            </div>
+            <OrderRow key={order._id} order={order} index={index + 1} />
           ))
         ) : (
           <p className="text-center my-4">لا توجد أوردرات</p>

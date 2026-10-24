@@ -1,28 +1,21 @@
 import React, { useEffect, useRef } from "react";
 import JsBarcode from "jsbarcode";
-import { ReactBarcode } from 'react-jsbarcode';
 
-
-const Barcode = ({ value }) => {
-    const svgRef = useRef(null);
-
-  // Default options
-    const defaultOptions = {
-    format: "code128",
-    lineColor: "#000",
-    width: 2,
-    height: 30,
-    displayValue: true, // shows the text below the barcode
-    fontSize: 10,
+const OPTIONS = {
+  format: "code128",
+  lineColor: "#000",
+  width: 2,
+  height: 30,
+  displayValue: true, // shows the text below the barcode
+  fontSize: 10,
 };
 
+export default function Barcode({ value }) {
+  const svgRef = useRef(null);
+
   useEffect(() => {
-    if (svgRef.current) {
-      JsBarcode(svgRef.current, value, defaultOptions);
-    }
+    if (svgRef.current && value) JsBarcode(svgRef.current, value, OPTIONS);
   }, [value]);
 
   return <svg ref={svgRef}></svg>;
-};
-
-export default Barcode;
+}

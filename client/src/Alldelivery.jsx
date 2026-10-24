@@ -1,45 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import Barcode from './Barcode';
+import React, { useState } from 'react';
 import DeliverySelect from './DeliverySelect';
-import { formatDate } from './utils/dataUtils';
-
-export const DELIVERY_URL = "https://sys-shipping-backend.onrender.com/orders/delivery/";
-export const DELIVERY = "https://sys-shipping-backend.onrender.com/deliveries";
-export const ORDERS_URL = "https://sys-shipping-backend.onrender.com/orders";
-
-// ==========================
-// helper fetch with token
-// ==========================
-const fetchWithToken = async (url, options = {}) => {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("لا يوجد توكن، يرجى تسجيل الدخول");
-
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
-
-  if (!res.ok) {
-    const message = data?.message || `حدث خطأ: ${res.status}`;
-    throw new Error(message);
-  }
-
-  return data;
-};
+import { OrdersHeader, OrderRow } from './OrderRow';
+import { getOrdersByDelivery, updateOrder } from './services/ordersApi';
+import { getUser } from './services/session';
+import { ORDER_STATUSES, DELIVERED, WITH_COURIER } from './utils/orderStatus';
 
 export default function Alldelivery() {
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getUser();
 
   // -----------------------
   // States
@@ -47,25 +14,7 @@ export default function Alldelivery() {
   const [selectedDelivery, setSelectedDelivery] = useState("");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [deliveries, setDeliveries] = useState([]);
   const [deliveryFee, setDeliveryFee] = useState(20);
-
-  const statusOptions = ["قيد التنفيذ", "مع المندوب", "تم التسليم", "مرتجع", "استبدال", "مرفوض"];
-
-  // -----------------------
-  // Fetch Deliveries
-  // -----------------------
-  useEffect(() => {
-    const fetchDeliveries = async () => {
-      try {
-        const data = await fetchWithToken(DELIVERY);
-        setDeliveries(data);
-      } catch (error) {
-        console.error("فشل جلب المندوبين:", error.message);
-      }
-    };
-    fetchDeliveries();
-  }, []);
 
   // -----------------------
   // Fetch orders by delivery
@@ -75,10 +24,8 @@ export default function Alldelivery() {
       if (!deliveryName) return;
       setLoading(true);
       setOrders([]);
-      console.log("Fetching orders for:", deliveryName);
-
-      const data = await fetchWithToken(`${DELIVERY_URL}${deliveryName}`);
-      const ordersWithDeliveryOnly = data.filter(order => order.status === "مع المندوب");
+      const data = await getOrdersByDelivery(deliveryName);
+      const ordersWithDeliveryOnly = data.filter(order => order.status === WITH_COURIER);
       setOrders(ordersWithDeliveryOnly);
     } catch (error) {
       console.error("فشل جلب الأوردرات:", error.message);
@@ -88,9 +35,11 @@ export default function Alldelivery() {
     }
   };
 
-  useEffect(() => {
-    if (selectedDelivery) fetchOrdersByDelivery(selectedDelivery);
-  }, [selectedDelivery]);
+  const handleSelectDelivery = (deliveryName) => {
+    setSelectedDelivery(deliveryName);
+    if (deliveryName) fetchOrdersByDelivery(deliveryName);
+    else setOrders([]);
+  };
 
   // -----------------------
   // Update order status locally
@@ -110,35 +59,16 @@ export default function Alldelivery() {
     try {
       setLoading(true);
 
-      const editedOrders = orders.filter(order => order.isEdited);
-      const ordersToDeliver = orders.filter(order => !order.isEdited && order.status === "مع المندوب");
+      // Edited rows keep their chosen status; untouched rows still "with courier" become delivered.
+      const finalStatus = (order) => (!order.isEdited && order.status === WITH_COURIER ? DELIVERED : order.status);
 
-      const updatePromises = [
-        ...editedOrders.map(order =>
-          fetchWithToken(`${ORDERS_URL}/${order._id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ status: order.status }),
-          })
-        ),
-        ...ordersToDeliver.map(order =>
-          fetchWithToken(`${ORDERS_URL}/${order._id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ status: "تم التسليم" }),
-          })
-        ),
-      ];
-
-      await Promise.all(updatePromises);
-
-      setOrders(prevOrders =>
-        prevOrders.map(order =>
-          order.isEdited
-            ? { ...order, isEdited: false }
-            : order.status === "مع المندوب"
-            ? { ...order, status: "تم التسليم", isEdited: false }
-            : { ...order, isEdited: false }
-        )
+      await Promise.all(
+        orders
+          .filter(order => order.isEdited || order.status === WITH_COURIER)
+          .map(order => updateOrder(order._id, { status: finalStatus(order) }))
       );
+
+      setOrders(prevOrders => prevOrders.map(order => ({ ...order, status: finalStatus(order), isEdited: false })));
 
       alert("تم حفظ التعديلات بنجاح ✅");
     } catch (error) {
@@ -154,7 +84,7 @@ export default function Alldelivery() {
   // -----------------------
   const totalOrders = orders.length;
   const totalCost = orders.reduce((sum, order) => sum + Number(order.cost || 0), 0);
-  const deliveredOrders = orders.filter(order => order.status === "تم التسليم");
+  const deliveredOrders = orders.filter(order => order.status === DELIVERED);
   const totalDeliveredCost = deliveredOrders.reduce((sum, order) => sum + Number(order.cost || 0), 0);
   const totalNotDeliveredCost = totalCost - totalDeliveredCost;
   const amountDue = deliveredOrders.length * deliveryFee;
@@ -167,7 +97,7 @@ export default function Alldelivery() {
     <div className="w-[98%] m-auto mt-4">
       {/* اختيار المندوب */}
       <div className="flex gap-4 items-center mb-4">
-        <DeliverySelect value={selectedDelivery} onChange={setSelectedDelivery} />
+        <DeliverySelect value={selectedDelivery} onChange={handleSelectDelivery} />
         {user?.role === "admin" && (
           <>
             <span>عمولة المندوب:</span>
@@ -205,48 +135,28 @@ export default function Alldelivery() {
         </div>
       )}
 
-      {/* Table Header */}
-      <div className="orders-grid border-2 rounded-lg font-bold">
-        <div className="orders-cell">العدد</div>
-        <div className="orders-cell">التاريخ</div>
-        <div className="orders-cell">الباركود</div>
-        <div className="orders-cell">العنوان</div>
-        <div className="orders-cell">المرسل إليه</div>
-        <div className="orders-cell">الحالة</div>
-        <div className="orders-cell">الشركة</div>
-        <div className="orders-cell">المندوب</div>
-        <div className="orders-cell">المبلغ</div>
-        <div className="orders-cell">ملاحظه</div>
-      </div>
+      <OrdersHeader />
 
       {/* Table Rows */}
       <div className="my-2">
         {orders.length > 0 ? (
           orders.map((order, index) => (
-            <div key={order._id || index} className="w-full m-auto">
-              <div className="orders-grid border-x-2 border-t-2">
-                <div className="orders-cell flex-col"><span className="text-sm">{index + 1}</span></div>
-                <div className="orders-cell flex-col"><span className="text-sm">{formatDate(order.createdAt)}</span></div>
-                <div className="orders-cell"><Barcode value={order.barcode} /></div>
-                <div className="orders-cell">{order.address}</div>
-                <div className="orders-cell flex-col"><span>{order.fullName}</span><span className="text-sm">{order.phone}</span></div>
-                <div className="orders-cell">
-                  <select
-                    value={order.status}
-                    onChange={(e) => handleStatusChange(order._id, e.target.value)}
-                    className="border px-2 py-1 rounded"
-                  >
-                    {statusOptions.map(status => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="orders-cell">{order.company}</div>
-                <div className="orders-cell">{order.delivery || "-"}</div>
-                <div className="orders-cell font-bold">{order.cost}</div>
-                <div className="orders-cell"></div>
-              </div>
-            </div>
+            <OrderRow
+              key={order._id}
+              order={order}
+              index={index + 1}
+              status={
+                <select
+                  value={order.status}
+                  onChange={(e) => handleStatusChange(order._id, e.target.value)}
+                  className="border px-2 py-1 rounded"
+                >
+                  {ORDER_STATUSES.map(status => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+              }
+            />
           ))
         ) : (
           !loading && <p className="text-center my-4">لا توجد أوردرات مع المندوب</p>

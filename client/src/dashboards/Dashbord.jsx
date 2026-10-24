@@ -9,23 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import DashboardLatestOrders from "./DashboardLatestOrders";
-
-export const ORDERS_URL = "https://sys-shipping-backend.onrender.com/orders";
-
-// helper function for fetch with token
-const fetchWithToken = async (url, options = {}) => {
-  const token = localStorage.getItem("token");
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-  if (!res.ok) throw new Error("Failed to fetch orders");
-  return res.json();
-};
+import { getOrderStats } from "../services/ordersApi";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -37,23 +21,17 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    const getData = async () => {
-      try {
-        const data = await fetchWithToken(ORDERS_URL);
-
+    getOrderStats()
+      .then((counts) =>
         setStats({
-          delivered: data.filter((o) => o.status === "تم التسليم").length,
-          inProgress: data.filter((o) => o.status === "قيد التنفيذ").length,
-          returned: data.filter((o) => o.status === "مرتجع").length,
-          refused: data.filter((o) => o.status === "مرفوض").length,
-          withDelivery: data.filter((o) => o.status === "مع المندوب").length,
-        });
-      } catch (error) {
-        console.error("Error fetching orders:", error);
-      }
-    };
-
-    getData();
+          delivered: counts["تم التسليم"] || 0,
+          inProgress: counts["قيد التنفيذ"] || 0,
+          returned: counts["مرتجع"] || 0,
+          refused: counts["مرفوض"] || 0,
+          withDelivery: counts["مع المندوب"] || 0,
+        })
+      )
+      .catch((error) => console.error("Error fetching stats:", error));
   }, []);
 
   /* ===== Chart Data ===== */

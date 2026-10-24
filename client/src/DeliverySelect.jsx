@@ -1,25 +1,13 @@
 import React, { useEffect, useState } from "react";
-
-export const DELIVERY_URL = "https://sys-shipping-backend.onrender.com/deliveries";
+import { getDeliveries } from "./services/resourcesApi";
 
 export default function DeliverySelect({ value, onChange }) {
   const [deliveries, setDeliveries] = useState([]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const fetchDeliveries = async () => {
-      try {
-        const res = await fetch(DELIVERY_URL, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setDeliveries(data);
-      } catch (error) {
-        console.error("فشل جلب المندوبين:", error);
-      }
-    };
-
-    fetchDeliveries();
+    getDeliveries()
+      .then(setDeliveries)
+      .catch((error) => console.error("فشل جلب المندوبين:", error));
   }, []);
 
   return (

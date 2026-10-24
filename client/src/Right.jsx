@@ -1,7 +1,8 @@
 import { NavLink } from "react-router-dom";
+import { getUser } from "./services/session";
 
 export default function Right() {
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getUser();
 
   return (
     <div className="py-8 flex flex-col items-center justify-center space-y-4  ">

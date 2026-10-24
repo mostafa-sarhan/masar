@@ -12,15 +12,13 @@ export default function Neworder() {
 
 const handleSubmit = async (data) => {
   try {
-    const result = await createOrder(data);
-    console.log("تمت إضافة الطلب:", result);
+    await createOrder(data);
 
     setSuccessMessage("تم إضافة الطلب بنجاح!");
     setTimeout(() => setSuccessMessage(""), 1500);
 
   } catch (err) {
-    console.error(err);
-    setFailedMessage("جميع الحقول مطلوبة!");
+    setFailedMessage(err.message || "جميع الحقول مطلوبة!");
     setTimeout(() => setFailedMessage(""), 1500);
   }
 };

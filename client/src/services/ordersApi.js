@@ -1,43 +1,23 @@
-import { fetchWithAuth } from "./Api";
+import { api } from "./api";
 
-export const ORDERS_URL = "https://sys-shipping-backend.onrender.com/orders";
+// Filters accepted by the orders endpoints:
+// search, status, company, delivery, date, from, to, archived ("true" | "false" | "all")
 
-// ============================
-// Get all orders
-// ============================
-export async function getData(setOrders) {
-  const data = await fetchWithAuth(ORDERS_URL);
-  const nonArchivedOrders = data.filter(order => !order.isArchived);
-  setOrders(nonArchivedOrders);
-}
+// Paginated: { items, total, page, pages, totalCost }
+export const getOrders = (params) => api("/orders", { params });
 
-// ============================
-// Create new order
-// ============================
-export async function createOrder(orderData) {
-  return fetchWithAuth(ORDERS_URL, {
-    method: "POST",
-    body: JSON.stringify(orderData),
-  });
-}
+// Every matching order (reports, printing, Excel)
+export const exportOrders = (params) => api("/orders/export", { params });
 
-// ============================
-// Delete order
-// ============================
-export async function handleDelete(id, setOrders) {
-  const confirmDelete = window.confirm("هل انت متأكد من الحذف؟");
-  if (!confirmDelete) return;
+// { [status]: count }
+export const getOrderStats = () => api("/orders/stats");
 
-  await fetchWithAuth(`${ORDERS_URL}/${id}`, { method: "DELETE" });
-  setOrders(prev => prev.filter(order => order._id !== id));
-}
+export const getCompanies = (params) => api("/orders/companies", { params });
 
-// ============================
-// Update order
-// ============================
-export async function updateOrder(id, updatedOrder) {
-  return fetchWithAuth(`${ORDERS_URL}/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(updatedOrder),
-  });
-}
+export const getOrderByBarcode = (barcode) => api(`/orders/barcode/${encodeURIComponent(barcode)}`);
+
+export const getOrdersByDelivery = (name) => api(`/orders/delivery/${encodeURIComponent(name)}`);
+
+export const createOrder = (order) => api("/orders", { method: "POST", body: order });
+
+export const updateOrder = (id, changes) => api(`/orders/${id}`, { method: "PATCH", body: changes });

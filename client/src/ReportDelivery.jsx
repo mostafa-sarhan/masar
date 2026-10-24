@@ -1,28 +1,6 @@
 import React, { useEffect, useState } from "react";
-
-const ORDERS_URL = "https://sys-shipping-backend.onrender.com/orders";
-const DELIVERIES_URL = "https://sys-shipping-backend.onrender.com/deliveries";
-
-// ==========================
-// helper fetch with token
-// ==========================
-const fetchWithToken = async (url, options = {}) => {
-  const token = localStorage.getItem("token");
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `حدث خطأ في السيرفر: ${res.status}`);
-  }
-  return res.json();
-};
+import { exportOrders } from "./services/ordersApi";
+import { getDeliveries, createDelivery } from "./services/resourcesApi";
 
 export default function ReportDelivery() {
   const [orders, setOrders] = useState([]);
@@ -36,8 +14,10 @@ export default function ReportDelivery() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const ordersData = await fetchWithToken(ORDERS_URL);
-        const deliveriesData = await fetchWithToken(DELIVERIES_URL);
+        const [ordersData, deliveriesData] = await Promise.all([
+          exportOrders({ archived: "all" }),
+          getDeliveries(),
+        ]);
 
         setOrders(ordersData);
         setDeliveries(deliveriesData.map(d => d.name));
@@ -59,10 +39,7 @@ export default function ReportDelivery() {
     }
 
     try {
-      const data = await fetchWithToken(DELIVERIES_URL, {
-        method: "POST",
-        body: JSON.stringify({ name: newDeliveryName }),
-      });
+      const data = await createDelivery(newDeliveryName);
 
       setDeliveries(prev => [...prev, data.name || newDeliveryName]);
       setNewDeliveryName("");

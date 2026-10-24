@@ -1,20 +1,6 @@
 import React, { useEffect, useState } from "react";
-import * as XLSX from "xlsx";
-
-export const ORDERS_URL = "https://sys-shipping-backend.onrender.com/orders";
-
-const fetchWithToken = async (url) => {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("لا يوجد توكن");
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-  if (!res.ok) throw new Error(`حدث خطأ في السيرفر: ${res.status}`);
-  return res.json();
-};
+import { exportOrders } from "./services/ordersApi";
+import { downloadReport } from "./utils/excel";
 
 export default function Company() {
   const [deliveryFee, setDeliveryFee] = useState(20);
@@ -28,7 +14,7 @@ export default function Company() {
   useEffect(() => {
     const getData = async () => {
       try {
-        const dataOrders = await fetchWithToken(ORDERS_URL);
+        const dataOrders = await exportOrders({ archived: "all" });
         setOrders(dataOrders || []);
 
         const uniqueCompanies = [...new Set(dataOrders.map((o) => o.company))];
@@ -40,11 +26,11 @@ export default function Company() {
     getData();
   }, []);
 
-  // فلترة الأوردرات حسب الشركة والتاريخ
+  // فلترة الأوردرات حسب الشركة والتاريخ (تاريخ النهاية شامل اليوم كله)
   const filteredOrders = orders.filter((order) => {
-    const orderDate = new Date(order.createdAt);
-    const afterStart = startDate ? orderDate >= new Date(startDate) : true;
-    const beforeEnd = endDate ? orderDate <= new Date(endDate) : true;
+    const day = order.createdAt?.slice(0, 10);
+    const afterStart = startDate ? day >= startDate : true;
+    const beforeEnd = endDate ? day <= endDate : true;
     const companyMatch = selectedCompany ? order.company === selectedCompany : true;
     return afterStart && beforeEnd && companyMatch;
   });
@@ -71,39 +57,29 @@ export default function Company() {
   const totalMerchant = remainingAfterCourier - deliveredOrders.length * companyFree;
   const companyProfit = deliveredOrders.length * companyFree;
 
-  const saveReport = () => {
-    const dataToSave = filteredOrders.map(order => ({
-      "رقم الشحنة": order.barcode,
-      "اسم العميل": order.fullName,
-      "قيمة الطلب": order.cost,
-      "حالة الشحنة": order.status,
-      "المندوب": order.delivery || "-",
-      "الشركة": order.company,
-      "المبلغ بعد خصم عمولة المندوب": order.status === "تم التسليم" ? order.cost - deliveryFee : order.cost,
-      "فلوس التاجر بعد الخصم": order.status === "تم التسليم" ? order.cost - deliveryFee - companyFree : 0,
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(dataToSave);
-    XLSX.utils.sheet_add_aoa(ws, [["تاريخ البداية:", startDate]], { origin: "A1" });
-    XLSX.utils.sheet_add_aoa(ws, [["تاريخ النهاية:", endDate]], { origin: "A2" });
-    XLSX.utils.sheet_add_aoa(ws, [["إجمالي الأوردرات:", filteredOrders.length]], { origin: "A3" });
-    XLSX.utils.sheet_add_aoa(ws, [["تم التسليم:", summary["تم التسليم"].count, "المبلغ:", summary["تم التسليم"].amount]], { origin: "A4" });
-    XLSX.utils.sheet_add_aoa(ws, [["قيد التنفيذ:", summary["قيد التنفيذ"].count, "المبلغ:", summary["قيد التنفيذ"].amount]], { origin: "A5" });
-    XLSX.utils.sheet_add_aoa(ws, [["مرتجع:", summary["مرتجع"].count, "المبلغ:", summary["مرتجع"].amount]], { origin: "A6" });
-    XLSX.utils.sheet_add_aoa(ws, [["مرفوض:", summary["مرفوض"].count, "المبلغ:", summary["مرفوض"].amount]], { origin: "A7" });
-    XLSX.utils.sheet_add_aoa(ws, [["استبدال:", summary["استبدال"].count, "المبلغ:", summary["استبدال"].amount]], { origin: "A8" });
-    XLSX.utils.sheet_add_aoa(ws, [["المبلغ المستلم:", totalReceived]], { origin: "F3" });
-    XLSX.utils.sheet_add_aoa(ws, [["المتبقي بعد خصم عمولة المندوب:", remainingAfterCourier]], { origin: "F4" });
-    XLSX.utils.sheet_add_aoa(ws, [["فلوس التاجر بعد الخصم:", totalMerchant]], { origin: "F5" });
-    XLSX.utils.sheet_add_aoa(ws, [["ربح الشركة:", companyProfit]], { origin: "F6" });
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "كشف الحساب");
-    XLSX.writeFile(
-      wb,
-      `كشف_حساب_${selectedCompany || "جميع"}_${Date.now()}.xlsx`
-    );
-  };
+  const saveReport = () =>
+    downloadReport({
+      fileName: `كشف_حساب_${selectedCompany || "جميع"}`,
+      sheetName: "كشف الحساب",
+      summary: [
+        ["تاريخ البداية:", startDate, "", "", "", "المبلغ المستلم:", totalReceived],
+        ["تاريخ النهاية:", endDate, "", "", "", "المتبقي بعد خصم عمولة المندوب:", remainingAfterCourier],
+        ["إجمالي الأوردرات:", filteredOrders.length, "", "", "", "فلوس التاجر بعد الخصم:", totalMerchant],
+        ["", "", "", "", "", "ربح الشركة:", companyProfit],
+        ...Object.entries(summary).map(([status, val]) => [`${status}:`, val.count, "المبلغ:", val.amount]),
+      ],
+      columns: [
+        { header: "رقم الشحنة", value: (o) => o.barcode },
+        { header: "اسم العميل", value: (o) => o.fullName },
+        { header: "قيمة الطلب", value: (o) => o.cost },
+        { header: "حالة الشحنة", value: (o) => o.status },
+        { header: "المندوب", value: (o) => o.delivery || "-" },
+        { header: "الشركة", value: (o) => o.company },
+        { header: "المبلغ بعد خصم عمولة المندوب", value: (o) => (o.status === "تم التسليم" ? o.cost - deliveryFee : o.cost) },
+        { header: "فلوس التاجر بعد الخصم", value: (o) => (o.status === "تم التسليم" ? o.cost - deliveryFee - companyFree : 0) },
+      ],
+      rows: filteredOrders,
+    });
 
   return (
     <div className="p-6 space-y-6">

@@ -1,30 +1,6 @@
 import React, { useEffect, useState } from "react";
-
-const ORDERS_URL = "https://sys-shipping-backend.onrender.com/orders";
-const MERCHANTS_URL = "https://sys-shipping-backend.onrender.com/merchants";
-const CREATE_MERCHANT_URL = "https://sys-shipping-backend.onrender.com/merchants";
-
-// ==========================
-// helper fetch with token
-// ==========================
-const fetchWithToken = async (url, options = {}) => {
-  const token = localStorage.getItem("token");
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `حدث خطأ في السيرفر: ${res.status}`);
-  }
-
-  return res.json();
-};
+import { exportOrders } from "./services/ordersApi";
+import { getMerchants, createMerchant } from "./services/resourcesApi";
 
 export default function Member() {
   const [merchants, setMerchants] = useState([]);
@@ -40,26 +16,14 @@ export default function Member() {
   // =====================
   // Fetch data
   // =====================
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [merchantsData, ordersData] = await Promise.all([
-        fetchWithToken(MERCHANTS_URL),
-        fetchWithToken(ORDERS_URL),
-      ]);
-
-      setMerchants(merchantsData.merchants || merchantsData || []);
-      setOrders(ordersData || []);
-    } catch (error) {
-      console.error("Fetch error:", error);
-      alert(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchData();
+    Promise.all([getMerchants(), exportOrders({ archived: "all" })])
+      .then(([merchantsData, ordersData]) => {
+        setMerchants(merchantsData || []);
+        setOrders(ordersData || []);
+      })
+      .catch((error) => alert(error.message))
+      .finally(() => setLoading(false));
   }, []);
 
   // =====================
@@ -70,10 +34,7 @@ export default function Member() {
 
     try {
       setAdding(true);
-      const data = await fetchWithToken(CREATE_MERCHANT_URL, {
-        method: "POST",
-        body: JSON.stringify({ name: merchantName }),
-      });
+      const data = await createMerchant(merchantName);
 
       // أضف التاجر مباشرة للـ state
       setMerchants(prev => [...prev, data]);

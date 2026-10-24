@@ -1,19 +1,7 @@
 import React, { useEffect, useState } from "react";
-import * as XLSX from "xlsx";
-
-const URL = "https://sys-shipping-backend.onrender.com/orders";
-
-const fetchWithToken = async (url) => {
-  const token = localStorage.getItem("token");
-  const res = await fetch(url, {
-    headers: {
-      Authorization: token ? `Bearer ${token}` : "",
-      "Content-Type": "application/json",
-    },
-  });
-  if (!res.ok) throw new Error(`حدث خطأ في السيرفر: ${res.status}`);
-  return res.json();
-};
+import { exportOrders } from "./services/ordersApi";
+import { getDeliveries } from "./services/resourcesApi";
+import { downloadReport } from "./utils/excel";
 
 export default function Account() {
   const [deliveryFee, setDeliveryFee] = useState(20); // قيمة افتراضية
@@ -29,12 +17,11 @@ export default function Account() {
   useEffect(() => {
     const getOrders = async () => {
       try {
-        const dataOrders = await fetchWithToken(URL);
+        const [dataOrders, dataDeliveries] = await Promise.all([
+          exportOrders({ archived: "all" }),
+          getDeliveries(),
+        ]);
         setOrders(dataOrders || []);
-
-        const dataDeliveries = await fetchWithToken(
-          "https://sys-shipping-backend.onrender.com/deliveries"
-        );
         setDeliveries(dataDeliveries || []);
       } catch (err) {
         console.error("فشل جلب البيانات:", err);
@@ -44,10 +31,11 @@ export default function Account() {
   }, []);
 
   // ===== فلترة الأوردرات حسب المندوب، الحالة، الشركة والتاريخ =====
+  // تاريخ النهاية شامل اليوم كله
   const filteredOrders = orders.filter((order) => {
-    const orderDate = new Date(order.createdAt);
-    const afterStart = startDate ? orderDate >= new Date(startDate) : true;
-    const beforeEnd = endDate ? orderDate <= new Date(endDate) : true;
+    const day = order.createdAt?.slice(0, 10);
+    const afterStart = startDate ? day >= startDate : true;
+    const beforeEnd = endDate ? day <= endDate : true;
     const courierMatch = selectedCourier ? order.delivery === selectedCourier : true;
     const statusMatch = selectedStatus ? order.status === selectedStatus : true;
     const companyMatch = selectedCompany ? order.company === selectedCompany : true;
@@ -74,40 +62,32 @@ const summary = {
   const merchantMoney = remainingAmount - companyGain;
 
   // ===== حفظ كشف الحساب Excel =====
-  const saveReport = () => {
-    const dataToSave = filteredOrders.map((order) => ({
-      "رقم الشحنة": order.barcode,
-      "اسم العميل": order.fullName,
-      "رقم العميل": order.phone,
-      "العنوان": order.address,
-      "قيمة الطلب": order.cost,
-      "حالة الشحنة": order.status,
-      "المندوب": order.delivery || "-",
-      "الشركة": order.company,
-      "العمولة": order.status === "تم التسليم" ? deliveryFee : 0,
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(dataToSave, { origin: 10 });
-    XLSX.utils.sheet_add_aoa(ws, [["تاريخ البداية:", startDate]], { origin: "A1" });
-    XLSX.utils.sheet_add_aoa(ws, [["تاريخ النهاية:", endDate]], { origin: "A2" });
-    XLSX.utils.sheet_add_aoa(ws, [["إجمالي الأوردرات:", filteredOrders.length]], { origin: "A3" });
-    XLSX.utils.sheet_add_aoa(ws, [["تم التسليم:", summary.delivered]], { origin: "A4" });
-    XLSX.utils.sheet_add_aoa(ws, [["مرتجع:", summary.returned]], { origin: "A5" });
-    XLSX.utils.sheet_add_aoa(ws, [["مرفوض:", summary.rejected]], { origin: "A6" });
-    XLSX.utils.sheet_add_aoa(ws, [["قيد التنفيذ:", summary.inProgress]], { origin: "A7" });
-    XLSX.utils.sheet_add_aoa(ws, [["استبدال:", summary.replacement]], { origin: "A8" });
-    XLSX.utils.sheet_add_aoa(ws, [["مع المندوب:", summary.withCourier]], { origin: "A9" });
-    XLSX.utils.sheet_add_aoa(ws, [["الإجمالي الكلي:", totalAmount]], { origin: "F3" });
-    XLSX.utils.sheet_add_aoa(ws, [["الإجمالي المسلّم:", deliveredTotal]], { origin: "F4" });
-    XLSX.utils.sheet_add_aoa(ws, [["العمولة:", totalCommission]], { origin: "F5" });
-    XLSX.utils.sheet_add_aoa(ws, [["المتبقي بعد العمولة:", remainingAmount]], { origin: "F6" });
-    XLSX.utils.sheet_add_aoa(ws, [["ربح الشركة:", companyGain]], { origin: "F7" });
-    XLSX.utils.sheet_add_aoa(ws, [["فلوس التاجر:", merchantMoney]], { origin: "F8" });
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "كشف الحساب");
-    XLSX.writeFile(wb, `كشف_الحساب_${selectedCourier || "جميع"}_${Date.now()}.xlsx`);
-  };
+  const saveReport = () =>
+    downloadReport({
+      fileName: `كشف_الحساب_${selectedCourier || "جميع"}`,
+      sheetName: "كشف الحساب",
+      summary: [
+        ["تاريخ البداية:", startDate, "", "", "", "الإجمالي الكلي:", totalAmount],
+        ["تاريخ النهاية:", endDate, "", "", "", "الإجمالي المسلّم:", deliveredTotal],
+        ["إجمالي الأوردرات:", filteredOrders.length, "", "", "", "العمولة:", totalCommission],
+        ["", "", "", "", "", "المتبقي بعد العمولة:", remainingAmount],
+        ["", "", "", "", "", "ربح الشركة:", companyGain],
+        ["", "", "", "", "", "فلوس التاجر:", merchantMoney],
+        ...Object.entries(summary).map(([status, count]) => [`${status}:`, count]),
+      ],
+      columns: [
+        { header: "رقم الشحنة", value: (o) => o.barcode },
+        { header: "اسم العميل", value: (o) => o.fullName },
+        { header: "رقم العميل", value: (o) => o.phone },
+        { header: "العنوان", value: (o) => o.address },
+        { header: "قيمة الطلب", value: (o) => o.cost },
+        { header: "حالة الشحنة", value: (o) => o.status },
+        { header: "المندوب", value: (o) => o.delivery || "-" },
+        { header: "الشركة", value: (o) => o.company },
+        { header: "العمولة", value: (o) => (o.status === "تم التسليم" ? deliveryFee : 0) },
+      ],
+      rows: filteredOrders,
+    });
 
   const allStatuses = [...new Set(orders.map((o) => o.status))];
   const allCompanies = [...new Set(orders.map((o) => o.company))];

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-
-const BASE_URL = "https://sys-shipping-backend.onrender.com";
+import { getUsers, getAuditLogs, createUser, changePassword, changeRole } from "./services/resourcesApi";
+import { formatDate } from "./utils/dataUtils";
 
 export default function Employee() {
   const [employees, setEmployees] = useState([]);
@@ -11,43 +11,14 @@ export default function Employee() {
   const [newPassword, setNewPassword] = useState("");
 
   const [roleEmail, setRoleEmail] = useState("");
-  const [newRole, setNewRole] = useState("user");
+  const [newRole, setNewRole] = useState("employee");
 
   const [auditLogs, setAuditLogs] = useState([]);
-
-  const token = localStorage.getItem("token");
-
-  // ======== CHECK TOKEN ========
-  useEffect(() => {
-    if (!token) {
-      alert("لازم تسجل دخول الأول ❌");
-    }
-  }, []);
-
-  // ======== HELPER FETCH ========
-  const fetchWithToken = async (url, options = {}) => {
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token ? `Bearer ${token}` : "",
-      },
-    });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      console.error("SERVER ERROR:", data);
-      throw new Error(data.message || "Server error");
-    }
-
-    return data;
-  };
 
   // ======== LOAD DATA ========
   const loadEmployees = async () => {
     try {
-      const data = await fetchWithToken(`${BASE_URL}/users`);
+      const data = await getUsers();
       setEmployees(data);
     } catch (err) {
       alert(err.message);
@@ -56,16 +27,16 @@ export default function Employee() {
 
   const loadAuditLogs = async () => {
     try {
-      const data = await fetchWithToken(`${BASE_URL}/users/auditlogs`);
+      const data = await getAuditLogs();
       setAuditLogs(data);
     } catch (err) {
-      console.log(err.message);
+      console.error(err.message);
     }
   };
 
   useEffect(() => {
-    loadEmployees();
-    loadAuditLogs();
+    getUsers().then(setEmployees).catch((err) => alert(err.message));
+    getAuditLogs().then(setAuditLogs).catch((err) => console.error(err.message));
   }, []);
 
   // ======== ADD USER ========
@@ -73,16 +44,7 @@ export default function Employee() {
     if (!email || !password) return alert("املأ كل الحقول");
 
     try {
-      const res = await fetchWithToken(`${BASE_URL}/users`, {
-        method: "POST",
-        body: JSON.stringify({
-          email,
-          password,
-          role: "employee", // ✅ FIXED
-        }),
-      });
-
-      console.log("ADD SUCCESS:", res);
+      await createUser({ email, password, role: "employee" });
 
       setEmail("");
       setPassword("");
@@ -100,10 +62,7 @@ export default function Employee() {
       return alert("اختر الموظف وأدخل الباسورد");
 
     try {
-      await fetchWithToken(`${BASE_URL}/users/password`, {
-        method: "PUT",
-        body: JSON.stringify({ email: editEmail, newPassword }),
-      });
+      await changePassword(editEmail, newPassword);
 
       setEditEmail("");
       setNewPassword("");
@@ -121,13 +80,7 @@ export default function Employee() {
       return alert("اختر الموظف والدور");
 
     try {
-      await fetchWithToken(`${BASE_URL}/users/role`, {
-        method: "PUT",
-        body: JSON.stringify({
-          targetEmail: roleEmail,
-          newRole,
-        }),
-      });
+      await changeRole(roleEmail, newRole);
 
       setRoleEmail("");
       alert("تم تغيير الدور ✅");
@@ -253,7 +206,7 @@ export default function Employee() {
             onChange={(e) => setNewRole(e.target.value)}
             className="border p-2 rounded"
           >
-            <option value="user">موظف</option>
+            <option value="employee">موظف</option>
             <option value="admin">أدمين</option>
           </select>
 
@@ -264,6 +217,37 @@ export default function Employee() {
             تغيير
           </button>
         </div>
+      </div>
+
+      {/* AUDIT LOG */}
+      <div>
+        <h2 className="text-xl font-bold mb-3">🧾 سجل التعديلات</h2>
+
+        <table className="w-full border text-center">
+          <thead>
+            <tr>
+              <th className="p-2 border">العملية</th>
+              <th className="p-2 border">الموظف</th>
+              <th className="p-2 border">من</th>
+              <th className="p-2 border">إلى</th>
+              <th className="p-2 border">بواسطة</th>
+              <th className="p-2 border">التاريخ</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {auditLogs.map((log) => (
+              <tr key={log._id}>
+                <td className="p-2 border">{log.action}</td>
+                <td className="p-2 border">{log.targetUser}</td>
+                <td className="p-2 border">{log.oldValue || "-"}</td>
+                <td className="p-2 border">{log.newValue || "-"}</td>
+                <td className="p-2 border">{log.changedBy}</td>
+                <td className="p-2 border">{formatDate(log.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
     </div>

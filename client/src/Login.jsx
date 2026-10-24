@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "./services/authService";
+import { saveSession } from "./services/session";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -15,18 +16,14 @@ export default function Login() {
     try {
       const res = await loginUser(email, password);
 
-      console.log("RES:", res);
-
       if (!res?.user) {
         throw new Error("User missing in response");
       }
 
-      localStorage.setItem("user", JSON.stringify(res.user));
-      localStorage.setItem("token", res.token);
+      saveSession(res);
 
       if (res.user.role === "admin") navigate("/");
       else navigate("/orders");
-      console.log("FULL RES:", res);
     } catch (err) {
       setError(err.message || "حدث خطأ أثناء تسجيل الدخول");
     }
