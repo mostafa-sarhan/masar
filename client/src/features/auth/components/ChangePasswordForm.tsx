@@ -1,48 +1,62 @@
 import { useState, type FormEvent } from "react";
+import { passwordProblems } from "@masar/shared";
+import { Field, Input } from "@/components/ui/Field";
+import { Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Feedback";
 import { errorMessage } from "@/lib/errors";
 
-export const PASSWORD_HINT = "10 أحرف على الأقل، حروف وأرقام";
+export const PASSWORD_HINT = "10 أحرف على الأقل، وتحتوي على حروف وأرقام";
 
-// Shared by the tenant app and the platform console. onSubmit(current, next) returns the new user/admin.
+const RULE_LABELS: Record<string, string> = {
+  "At least 10 characters": "10 أحرف على الأقل",
+  "At most 72 bytes": "أقصر من 72 بايت",
+  "At least one letter": "حرف واحد على الأقل",
+  "At least one digit": "رقم واحد على الأقل",
+  "Must not contain the email name": "لا تحتوي على اسم البريد الإلكتروني",
+};
+
 interface ChangePasswordFormProps<T> {
-  title: string;
-  note?: string;
+  email?: string;
   onSubmit(current: string, next: string): Promise<T>;
   onDone(result: T): void;
+  submitLabel?: string;
 }
 
-export default function ChangePasswordForm<T>({ title, note, onSubmit, onDone }: ChangePasswordFormProps<T>) {
+// Current + new + confirm, with the server's password policy checked as you type.
+export default function ChangePasswordForm<T>({ email, onSubmit, onDone, submitLabel = "حفظ كلمة المرور" }: ChangePasswordFormProps<T>) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const problems = next ? passwordProblems(next, email) : [];
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    if (next !== confirm) return setError("الباسورد الجديد غير متطابق");
+    if (problems.length) return setError("كلمة المرور الجديدة لا تطابق الشروط");
+    if (next !== confirm) return setError("تأكيد كلمة المرور غير مطابق");
     try {
+      setSaving(true);
       onDone(await onSubmit(current, next));
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const input = (placeholder: string, value: string, set: (v: string) => void) => (
-    <input type="password" placeholder={placeholder} className="border p-1 rounded-lg my-2 w-[300px]" value={value} onChange={(e) => set(e.target.value)} required />
-  );
-
   return (
-    <div className="w-full flex justify-center items-center h-screen bg-main">
-      <form onSubmit={submit} className="bg-amber-50 rounded-lg text-center p-4 m-2 flex flex-col text-black">
-        <h1 className="text-xl font-bold mb-1">{title}</h1>
-        {note && <p className="text-sm text-gray-600 mb-2">{note}</p>}
-        {input("الباسورد الحالي", current, setCurrent)}
-        {input(`الباسورد الجديد (${PASSWORD_HINT})`, next, setNext)}
-        {input("تأكيد الباسورد الجديد", confirm, setConfirm)}
-        {error && <p className="text-red-500 whitespace-pre-line">{error}</p>}
-        <button type="submit" className="bg-black text-white rounded-lg py-1 mt-3">حفظ</button>
-      </form>
-    </div>
+    <form onSubmit={submit} className="space-y-4">
+      <Field label="كلمة المرور الحالية">{(p) => <Input {...p} type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} required />}</Field>
+      <Field label="كلمة المرور الجديدة" hint={next && problems.length ? problems.map((r) => RULE_LABELS[r]).join("، ") : PASSWORD_HINT}>
+        {(p) => <Input {...p} type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required />}
+      </Field>
+      <Field label="تأكيد كلمة المرور الجديدة">{(p) => <Input {...p} type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />}</Field>
+      {error && <Notice tone="danger">{error}</Notice>}
+      <Button type="submit" loading={saving} className="w-full">
+        {submitLabel}
+      </Button>
+    </form>
   );
 }
