@@ -19,7 +19,9 @@ import Account from "./Account";
 import Employee from "./Employee";
 import Settings from "./Settings";
 import PlatformApp from "./platform/PlatformApp";
-import { ADMIN_ROLES } from "./utils/roles";
+import { ADMIN_ROLES, STAFF_ROLES } from "./utils/roles";
+import CourierApp from "./CourierApp";
+import MerchantPortal from "./MerchantPortal";
 
 const adminOnly = (page) => <ProtectedRoute allow={ADMIN_ROLES}>{page}</ProtectedRoute>;
 
@@ -28,10 +30,12 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/platform/*" element={<PlatformApp />} />
+      <Route path="/courier" element={<ProtectedRoute allow={["courier"]}><CourierApp /></ProtectedRoute>} />
+      <Route path="/portal" element={<ProtectedRoute allow={["merchant"]}><MerchantPortal /></ProtectedRoute>} />
 
       <Route
         element={
-          <ProtectedRoute allow={[...ADMIN_ROLES, "employee"]}>
+          <ProtectedRoute allow={STAFF_ROLES}>
             <MainLayout />
           </ProtectedRoute>
         }

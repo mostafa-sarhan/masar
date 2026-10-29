@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { errorMessage } from "./services/errors";
-import { isAdmin } from "./utils/roles";
+import { homeFor } from "./utils/roles";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,8 +18,7 @@ export default function Login() {
     try {
       const user = await login(email, password);
 
-      if (isAdmin(user.role)) navigate("/");
-      else navigate("/orders");
+      navigate(user.role === "employee" ? "/orders" : homeFor(user.role));
     } catch (err) {
       setError(errorMessage(err));
     }

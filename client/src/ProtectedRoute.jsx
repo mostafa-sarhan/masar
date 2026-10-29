@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import ChangePasswordForm from "./ChangePasswordForm";
 import { changeOwnPassword } from "./services/authService";
+import { homeFor } from "./utils/roles";
 
 export default function ProtectedRoute({ children, allow }) {
   const { user, checking, passwordChanged } = useAuth();
@@ -26,7 +27,7 @@ export default function ProtectedRoute({ children, allow }) {
   }
 
   // لو الدور مش مسموح
-  if (allow && !allow.includes(user.role)) return <Navigate to="/" />;
+  if (allow && !allow.includes(user.role)) return <Navigate to={homeFor(user.role)} />;
 
   return children;
 }

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { getCourierReport, createCourier } from "./services/resourcesApi";
+import { getCourierReport, createCourier, getCouriers } from "./services/resourcesApi";
+import { createCourierAccount } from "./services/portalsApi";
+import { promptAccount } from "./utils/promptAccount";
 import { errorMessage } from "./services/errors";
 
 const COLUMNS = ["delivered", "returned", "refused", "pending", "with_courier"];
@@ -13,6 +15,7 @@ export default function ReportDelivery() {
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [couriers, setCouriers] = useState([]);
 
   useEffect(() => {
     getCourierReport({ archived: "all", courierFee })
@@ -22,6 +25,7 @@ export default function ReportDelivery() {
       })
       .catch((err) => alert(errorMessage(err)))
       .finally(() => setLoading(false));
+    getCouriers().then(setCouriers).catch(console.error);
     // courierFee is applied on blur, not on every keystroke
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey]);
@@ -100,6 +104,27 @@ export default function ReportDelivery() {
       ) : (
         <p className="text-center">لا توجد بيانات</p>
       )}
+
+      {/* Courier logins (mobile view) */}
+      <div className="mt-8">
+        <h3 className="text-xl font-bold mb-2">حسابات المناديب (تطبيق المندوب)</h3>
+        <table className="w-full border-collapse border border-gray-400 text-center">
+          <tbody>
+            {couriers.map((c) => (
+              <tr key={c._id}>
+                <td className="border p-2">{c.name}</td>
+                <td className="border p-2" dir="ltr">
+                  {c.account ?? (
+                    <button className="bg-blue-500 text-white px-3 py-1 rounded" onClick={async () => (await promptAccount(c.name, (e, p) => createCourierAccount(c._id, e, p))) && setReloadKey((k) => k + 1)}>
+                      إنشاء حساب
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

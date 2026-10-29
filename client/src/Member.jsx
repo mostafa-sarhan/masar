@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, getMerchantReport, updateMerchant } from "./services/resourcesApi";
 import { errorMessage } from "./services/errors";
 import FeeInputs from "./FeeInputs";
+import { createMerchantUser } from "./services/portalsApi";
+import { promptAccount } from "./utils/promptAccount";
 
 const COUNT_COLUMNS = ["delivered", "returned", "refused", "pending", "exchanged", "with_courier"];
 
@@ -140,6 +142,7 @@ export default function Member() {
                 <th className="p-2 border">عدد المسلّم</th>
                 <th className="p-2 border">إجمالي المسلّم</th>
                 <th className="p-2 border">عمولة الشركة</th>
+                <th className="p-2 border">مستخدمو البوابة</th>
                 <th className="p-2 border">صافي التاجر</th>
               </tr>
             </thead>
@@ -199,6 +202,7 @@ export default function Member() {
                 <th className="p-2 border">اسم التاجر</th>
                 <th className="p-2 border">API Key</th>
                 <th className="p-2 border">عمولة الشركة</th>
+                <th className="p-2 border">مستخدمو البوابة</th>
                 <th className="p-2 border">تاريخ الإنشاء</th>
                 <th className="p-2 border">المفتاح</th>
               </tr>
@@ -214,6 +218,10 @@ export default function Member() {
                     <td className="p-2">
                       <button className="underline" onClick={() => handleCompanyFee(m)}>{m.companyFee ?? "الافتراضي"}</button>
                     </td>
+                    <td className="p-2 text-xs" dir="ltr">
+                      {(m.users || []).map((u) => <div key={u}>{u}</div>)}
+                      <button className="px-2 py-1 bg-green-700 rounded mt-1" onClick={async () => (await promptAccount(m.name, (e, p) => createMerchantUser(m._id, e, p))) && reload()}>+ مستخدم</button>
+                    </td>
                     <td className="p-2">{m.createdAt ? new Date(m.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" }) : "-"}</td>
                     <td className="p-2 space-x-2 space-x-reverse">
                       <button className="px-2 py-1 bg-blue-600 rounded" onClick={() => handleRotate(m)}>{m.hasActiveKey ? "تغيير" : "إنشاء"}</button>
@@ -222,7 +230,7 @@ export default function Member() {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan="5" className="p-4">لا يوجد تجار</td></tr>
+                <tr><td colSpan="6" className="p-4">لا يوجد تجار</td></tr>
               )}
             </tbody>
           </table>
