@@ -7,21 +7,34 @@ const AuthContext = createContext(null);
 // The session lives in httpOnly cookies; here we only keep who is logged in.
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [tenant, setTenant] = useState(null);
   const [checking, setChecking] = useState(true);
+  const [sessionError, setSessionError] = useState(null); // why the session ended, shown on the login page
 
   useEffect(() => {
-    setSessionLostHandler(() => setUser(null));
+    setSessionLostHandler((err) => {
+      setUser(null);
+      if (err) setSessionError(err);
+    });
     // Access token may have expired while the tab was closed: fall back to the refresh token.
     me()
       .catch(() => refresh())
-      .then((data) => setUser(data.user))
-      .catch(() => setUser(null))
+      .then((data) => {
+        setUser(data.user);
+        setTenant(data.tenant);
+      })
+      .catch((err) => {
+        setUser(null);
+        if (err?.code === "TENANT_SUSPENDED" || err?.code === "TRIAL_EXPIRED") setSessionError(err);
+      })
       .finally(() => setChecking(false));
   }, []);
 
   const login = useCallback(async (email, password) => {
+    setSessionError(null);
     const data = await apiLogin(email, password);
     setUser(data.user);
+    setTenant(data.tenant);
     return data.user;
   }, []);
 
@@ -30,7 +43,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, checking, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, tenant, checking, sessionError, login, logout }}>{children}</AuthContext.Provider>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

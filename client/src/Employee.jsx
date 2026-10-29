@@ -3,12 +3,14 @@ import { getUsers, getAuditLogs, createUser, changePassword, changeRole } from "
 import { errorMessage } from "./services/errors";
 import { formatDate } from "./utils/dataUtils";
 import Pagination from "./Pagination";
+import { ROLE_LABELS } from "./utils/roles";
+import { useAuth } from "./AuthContext";
 
-const ROLE_LABELS = { admin: "أدمين", employee: "موظف" };
 const ACTION_LABELS = {
   CREATE_USER: "إضافة موظف",
   CHANGE_PASSWORD: "تغيير باسورد",
   CHANGE_ROLE: "تغيير الدور",
+  CHANGE_OWN_PASSWORD: "تغيير الباسورد الشخصي",
   CREATE: "إضافة",
   UPDATE: "تعديل",
   STATUS_CHANGE: "تغيير الحالة",
@@ -27,6 +29,7 @@ const describeChanges = (changes) =>
     .join("، ");
 
 export default function Employee() {
+  const { user } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -145,6 +148,7 @@ export default function Employee() {
           <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className="border p-2 rounded">
             <option value="employee">موظف</option>
             <option value="admin">أدمين</option>
+            {user?.role === "owner" && <option value="owner">مالك</option>}
           </select>
           <button onClick={handleChangeRole} className="bg-purple-600 text-white px-4 rounded">تغيير</button>
         </div>

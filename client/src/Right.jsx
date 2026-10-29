@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { isAdmin } from "./utils/roles";
 
 export default function Right() {
   const { user } = useAuth();
@@ -25,7 +26,7 @@ export default function Right() {
       </NavLink>
 
       {/* العناصر الخاصة بالأدمن فقط */}
-      {user?.role === "admin" && (
+      {isAdmin(user?.role) && (
         <>
           <NavLink to="/reportdelivery" className="bg-white w-[85%] text-3xl p-2 rounded">
             تقارير المناديب

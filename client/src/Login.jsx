@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { errorMessage } from "./services/errors";
+import { isAdmin } from "./utils/roles";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, sessionError } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,7 +18,7 @@ export default function Login() {
     try {
       const user = await login(email, password);
 
-      if (user.role === "admin") navigate("/");
+      if (isAdmin(user.role)) navigate("/");
       else navigate("/orders");
     } catch (err) {
       setError(errorMessage(err));
@@ -50,7 +51,7 @@ export default function Login() {
           required
         />
 
-        {error && <p className="text-red-500">{error}</p>}
+        {(error || sessionError) && <p className="text-red-500">{error || errorMessage(sessionError)}</p>}
 
         <button
           type="submit"

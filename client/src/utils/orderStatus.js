@@ -27,5 +27,5 @@ const ADMIN_CORRECTIONS = {
 };
 export const nextStatuses = (from, role) => [
   ...(TRANSITIONS[from] || []),
-  ...(role === "admin" ? ADMIN_CORRECTIONS[from] || [] : []),
+  ...(role === "admin" || role === "owner" ? ADMIN_CORRECTIONS[from] || [] : []),
 ];

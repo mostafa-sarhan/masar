@@ -31,26 +31,38 @@ async function send(path, { method = "GET", body, params } = {}) {
   return json;
 }
 
-// One refresh at a time, shared by every request that hit an expired access token.
-let refreshing = null;
-const refreshSession = () => {
-  refreshing ||= send("/auth/refresh", { method: "POST" }).finally(() => (refreshing = null));
-  return refreshing;
+// Two session realms: tenant users and platform admins (paths under /platform).
+const realmOf = (path) => (path.startsWith("/platform") ? "platform" : "tenant");
+const REFRESH_PATH = { tenant: "/auth/refresh", platform: "/platform/auth/refresh" };
+const AUTH_PREFIX = { tenant: "/auth/", platform: "/platform/auth/" };
+
+// One refresh at a time per realm, shared by every request that hit an expired access token.
+const refreshing = {};
+const refreshSession = (realm) => {
+  refreshing[realm] ||= send(REFRESH_PATH[realm], { method: "POST" }).finally(() => (refreshing[realm] = null));
+  return refreshing[realm];
 };
 
-let onSessionLost = () => {};
-export const setSessionLostHandler = (handler) => (onSessionLost = handler);
+const ACCOUNT_BLOCKED = ["TENANT_SUSPENDED", "TRIAL_EXPIRED"];
+const onSessionLost = { tenant: () => {}, platform: () => {} };
+export const setSessionLostHandler = (handler, realm = "tenant") => (onSessionLost[realm] = handler);
 
 // Full response: { data, meta? }. Retries once after refreshing an expired session.
 export async function request(path, options) {
+  const realm = realmOf(path);
   try {
     return await send(path, options);
   } catch (err) {
-    if (!(err instanceof ApiError) || err.status !== 401 || path.startsWith("/auth/")) throw err;
+    // The company was suspended or its trial ended while the app was open: end the session.
+    if (err instanceof ApiError && ACCOUNT_BLOCKED.includes(err.code)) {
+      onSessionLost[realm](err);
+      throw err;
+    }
+    if (!(err instanceof ApiError) || err.status !== 401 || path.startsWith(AUTH_PREFIX[realm])) throw err;
     try {
-      await refreshSession();
+      await refreshSession(realm);
     } catch {
-      onSessionLost();
+      onSessionLost[realm]();
       throw err;
     }
     return send(path, options);

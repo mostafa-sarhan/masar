@@ -5,6 +5,7 @@ import { getOrders, bulkStatus } from "./services/ordersApi";
 import { getSettlement } from "./services/resourcesApi";
 import { errorMessage } from "./services/errors";
 import { useAuth } from "./AuthContext";
+import { isAdmin as isAdminRole } from "./utils/roles";
 import { nextStatuses, statusLabel } from "./utils/orderStatus";
 
 const MAX_ORDERS = 100;
@@ -12,7 +13,7 @@ const MAX_ORDERS = 100;
 // A courier's open orders: set each result, save the batch, see the settlement (calculated on the server).
 export default function Alldelivery() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = isAdminRole(user?.role);
 
   const [courier, setCourier] = useState("");
   const [couriers, setCouriers] = useState([]);

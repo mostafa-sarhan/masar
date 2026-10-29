@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { exportOrders, updateOrder } from "./services/ordersApi";
 import { errorMessage } from "./services/errors";
 import { useAuth } from "./AuthContext";
+import { isAdmin as isAdminRole } from "./utils/roles";
 import { usePagedOrders } from "./hooks/usePagedOrders";
 import FormOrder from "./FormOrder";
 import CourierSelect from "./CourierSelect";
@@ -16,7 +17,7 @@ const PAGE_SIZE = 6;
 
 export default function Orders() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = isAdminRole(user?.role);
   const [editingOrder, setEditingOrder] = useState(null);
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);

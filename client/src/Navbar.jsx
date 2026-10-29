@@ -5,7 +5,7 @@ import { useAuth } from "./AuthContext";
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, tenant, logout } = useAuth();
   const [open, setOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -27,7 +27,10 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
 
           {/* Logo */}
-          <img src={Logo} alt="Logo" className="w-[100px]" />
+          <div className="flex items-center gap-3">
+            <img src={Logo} alt="Logo" className="w-[100px]" />
+            {tenant && <span className="text-sm font-semibold">{tenant.name}</span>}
+          </div>
 
           {/* Desktop Links */}
           <div className="hidden md:flex space-x-6 items-center justify-around w-[60%]">

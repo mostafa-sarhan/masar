@@ -17,17 +17,20 @@ import Member from "./Member";
 import Company from "./Company";
 import Account from "./Account";
 import Employee from "./Employee";
+import PlatformApp from "./platform/PlatformApp";
+import { ADMIN_ROLES } from "./utils/roles";
 
-const adminOnly = (page) => <ProtectedRoute allow={["admin"]}>{page}</ProtectedRoute>;
+const adminOnly = (page) => <ProtectedRoute allow={ADMIN_ROLES}>{page}</ProtectedRoute>;
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/platform/*" element={<PlatformApp />} />
 
       <Route
         element={
-          <ProtectedRoute allow={["admin", "employee"]}>
+          <ProtectedRoute allow={[...ADMIN_ROLES, "employee"]}>
             <MainLayout />
           </ProtectedRoute>
         }
