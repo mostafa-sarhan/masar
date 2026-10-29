@@ -1,166 +1,175 @@
-import type { Merchant } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Store, Plus, KeyRound, UserPlus, Percent, Ban } from "lucide-react";
 import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, updateMerchant } from "@/lib/resources-api";
-import { errorMessage } from "@/lib/errors";
 import { createMerchantUser } from "@/lib/portals-api";
-import { promptAccount } from "@/lib/prompt-account";
+import { PageHeader, Panel } from "@/components/ui/Panel";
+import { DataTable } from "@/components/ui/DataTable";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Field";
+import { Modal } from "@/components/ui/Overlay";
+import { Badge } from "@/components/ui/Status";
+import { AccountForm } from "@/components/forms/AccountForm";
+import { SecretReveal } from "@/components/forms/SecretReveal";
+import { useFeedback } from "@/components/ui/feedback-context";
+import Money from "@/components/ui/Money";
+import { errorMessage } from "@/lib/errors";
+import { formatDate } from "@/lib/format-date";
+import type { Merchant } from "@/lib/types";
 
-export default function Member() {
-  const [merchants, setMerchants] = useState<Merchant[]>([]);
-  const [loading, setLoading] = useState(true);
+type Dialog = { kind: "add" } | { kind: "key"; name: string; apiKey: string } | { kind: "fee"; merchant: Merchant } | { kind: "user"; merchant: Merchant } | null;
+
+// Merchants (the shipping company's clients): API keys, company-fee overrides and portal users.
+export default function MerchantsPage() {
+  const { toast, confirm } = useFeedback();
+  const [merchants, setMerchants] = useState<Merchant[] | null>(null);
+  const [dialog, setDialog] = useState<Dialog>(null);
   const [reloadKey, setReloadKey] = useState(0);
-
-  const [merchantName, setMerchantName] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newKey, setNewKey] = useState<{ name: string; apiKey: string | null } | null>(null); // shown once
-
-  useEffect(() => {
-    getMerchants()
-      .then(setMerchants)
-      .catch((err) => alert(errorMessage(err)))
-      .finally(() => setLoading(false));
-  }, [reloadKey]);
-
   const reload = () => setReloadKey((k) => k + 1);
 
-  const handleAddMerchant = async () => {
-    if (!merchantName.trim()) return alert("اسم التاجر مطلوب");
-    try {
-      setAdding(true);
-      const { merchant, apiKey } = await createMerchant(merchantName.trim());
-      setNewKey({ name: merchant.name, apiKey });
-      setMerchantName("");
-      setShowAdd(false);
-      reload();
-    } catch (err) {
-      alert("حصل خطأ أثناء إضافة التاجر: " + errorMessage(err));
-    } finally {
-      setAdding(false);
-    }
-  };
+  useEffect(() => {
+    getMerchants().then(setMerchants).catch((err) => toast(errorMessage(err), "danger"));
+  }, [reloadKey, toast]);
 
-  const handleRotate = async (m: Merchant) => {
-    if (!window.confirm(`سيتم إيقاف المفتاح الحالي لـ ${m.name} فورًا. متابعة؟`)) return;
+  const rotate = async (m: Merchant) => {
+    if (m.hasActiveKey && !(await confirm({ title: `تغيير مفتاح ${m.name}؟`, description: "سيتوقف المفتاح الحالي فورًا، ويجب تحديثه في نظام التاجر.", confirmLabel: "تغيير المفتاح", danger: true }))) return;
     try {
       const { apiKey } = await rotateMerchantKey(m._id);
-      setNewKey({ name: m.name, apiKey });
+      setDialog({ kind: "key", name: m.name, apiKey });
       reload();
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
     }
   };
 
-  // Empty = use the company's default fee (Settings).
-  const handleCompanyFee = async (m: Merchant) => {
-    const value = window.prompt(`عمولة الشركة لـ ${m.name} لكل أوردر مسلّم (اتركها فارغة لاستخدام الافتراضي)`, String(m.companyFee ?? ""));
-    if (value === null) return;
-    try {
-      await updateMerchant(m._id, { companyFee: value.trim() === "" ? null : Number(value) });
-      reload();
-    } catch (err) {
-      alert(errorMessage(err));
-    }
-  };
-
-  const handleRevoke = async (m: Merchant) => {
-    if (!window.confirm(`إلغاء مفتاح ${m.name}؟ لن يتمكن من إرسال أوردرات.`)) return;
+  const revoke = async (m: Merchant) => {
+    if (!(await confirm({ title: `إلغاء مفتاح ${m.name}؟`, description: "لن يتمكن نظام التاجر من إرسال شحنات حتى يُنشأ مفتاح جديد.", confirmLabel: "إلغاء المفتاح", danger: true }))) return;
     try {
       await revokeMerchantKey(m._id);
+      toast("تم إلغاء المفتاح");
       reload();
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
     }
   };
 
-  if (loading) {
-    return <div className="w-full h-full flex justify-center items-center text-xl">جاري التحميل...</div>;
-  }
-
   return (
-    <div className="p-6 space-y-10">
-      {/* Actions */}
-      <div className="flex flex-wrap gap-4 items-center">
-        <button className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded" onClick={() => setShowAdd(true)}>
-          ➕ إضافة تاجر
-        </button>
-      </div>
-
-      {/* Add merchant */}
-      {showAdd && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 p-6 rounded-xl w-[350px]">
-            <h3 className="text-xl font-bold mb-4">إضافة تاجر جديد</h3>
-            <input type="text" placeholder="اسم التاجر" value={merchantName} onChange={(e) => setMerchantName(e.target.value)} className="w-full mb-4 px-3 py-2 rounded bg-gray-800 border" />
-            <div className="flex justify-end gap-3">
-              <button className="px-4 py-2 bg-gray-600 rounded" onClick={() => setShowAdd(false)}>إلغاء</button>
-              <button disabled={adding} className="px-4 py-2 bg-green-600 rounded" onClick={handleAddMerchant}>
-                {adding ? "جاري الحفظ..." : "حفظ"}
-              </button>
+    <>
+      <PageHeader
+        title="التجار"
+        description="مفاتيح الربط مع أنظمة التجار، وعمولة الشركة الخاصة بكل تاجر، وحسابات بوابة التاجر."
+        actions={<Button icon={<Plus className="size-4" />} onClick={() => setDialog({ kind: "add" })}>تاجر جديد</Button>}
+      />
+      <Panel>
+        <DataTable
+          caption="التجار"
+          loading={!merchants}
+          rows={merchants ?? []}
+          rowKey={(m) => m._id}
+          columns={[
+            { key: "name", header: "التاجر", primary: true, cell: (m) => <span className="font-medium text-ink">{m.name}</span> },
+            {
+              key: "key",
+              header: "مفتاح الربط",
+              cell: (m) => (m.hasActiveKey ? <span dir="ltr" className="num text-ink-2">{m.apiKeyPrefix}…</span> : m.apiKeyRevokedAt ? <Badge tone="danger">ملغى</Badge> : <Badge>لا يوجد</Badge>),
+            },
+            { key: "fee", header: "عمولة الشركة", cell: (m) => (m.companyFee === null ? <span className="text-ink-3">الافتراضية</span> : <Money value={m.companyFee} />) },
+            { key: "users", header: "حسابات البوابة", cell: (m) => (m.users?.length ? <span dir="ltr" className="text-ink-2">{m.users.join("، ")}</span> : <span className="text-ink-3">—</span>) },
+            { key: "created", header: "أُضيف", hideOnMobile: true, cell: (m) => <span className="num text-ink-3">{formatDate(m.createdAt)}</span> },
+          ]}
+          rowActions={(m) => (
+            <div className="flex flex-wrap gap-1">
+              <Button variant="quiet" size="sm" icon={<KeyRound className="size-4" />} onClick={() => rotate(m)}>
+                {m.hasActiveKey ? "تغيير المفتاح" : "إنشاء مفتاح"}
+              </Button>
+              {m.hasActiveKey && <Button variant="quiet" size="sm" icon={<Ban className="size-4" />} onClick={() => revoke(m)} aria-label={`إلغاء مفتاح ${m.name}`} title="إلغاء المفتاح" />}
+              <Button variant="quiet" size="sm" icon={<Percent className="size-4" />} onClick={() => setDialog({ kind: "fee", merchant: m })} aria-label="عمولة الشركة" title="عمولة الشركة" />
+              <Button variant="quiet" size="sm" icon={<UserPlus className="size-4" />} onClick={() => setDialog({ kind: "user", merchant: m })} aria-label="حساب بوابة" title="إضافة حساب بوابة" />
             </div>
-          </div>
-        </div>
-      )}
+          )}
+          empty={{ icon: <Store />, title: "لا يوجد تجار بعد", description: "أضف أول تاجر لتسجيل شحناته.", action: <Button onClick={() => setDialog({ kind: "add" })}>تاجر جديد</Button> }}
+        />
+      </Panel>
 
-      {/* New API key: shown once */}
-      {newKey && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 p-6 rounded-xl w-[480px] space-y-4">
-            <h3 className="text-xl font-bold">مفتاح API لـ {newKey.name}</h3>
-            <p className="text-yellow-400 text-sm">انسخ المفتاح الآن، لن يظهر مرة أخرى.</p>
-            <code className="block bg-gray-800 p-3 rounded break-all select-all" dir="ltr">{newKey.apiKey}</code>
-            <div className="flex justify-end gap-3">
-              <button className="px-4 py-2 bg-blue-600 rounded" onClick={() => navigator.clipboard?.writeText(newKey.apiKey ?? "")}>نسخ</button>
-              <button className="px-4 py-2 bg-gray-600 rounded" onClick={() => setNewKey(null)}>تم</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddMerchant open={dialog?.kind === "add"} onClose={() => setDialog(null)} onCreated={(name, apiKey) => { reload(); setDialog(apiKey ? { kind: "key", name, apiKey } : null); }} />
 
-      {/* Merchants + keys */}
-      <div className="mt-10">
-        <h2 className="text-2xl font-bold mb-4">بيانات التجار</h2>
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full text-center text-sm">
-            <thead className="bg-gray-800 text-white">
-              <tr>
-                <th className="p-2 border">اسم التاجر</th>
-                <th className="p-2 border">API Key</th>
-                <th className="p-2 border">عمولة الشركة</th>
-                <th className="p-2 border">مستخدمو البوابة</th>
-                <th className="p-2 border">تاريخ الإنشاء</th>
-                <th className="p-2 border">المفتاح</th>
-              </tr>
-            </thead>
-            <tbody>
-              {merchants.length > 0 ? (
-                merchants.map((m) => (
-                  <tr key={m._id} className="border-b hover:bg-gray-800">
-                    <td className="p-2 font-bold">{m.name}</td>
-                    <td className="p-2 text-yellow-400" dir="ltr">
-                      {m.hasActiveKey ? `${m.apiKeyPrefix}…` : m.apiKeyRevokedAt ? "ملغي" : "-"}
-                    </td>
-                    <td className="p-2">
-                      <button className="underline" onClick={() => handleCompanyFee(m)}>{m.companyFee ?? "الافتراضي"}</button>
-                    </td>
-                    <td className="p-2 text-xs" dir="ltr">
-                      {(m.users || []).map((u) => <div key={u}>{u}</div>)}
-                      <button className="px-2 py-1 bg-green-700 rounded mt-1" onClick={async () => (await promptAccount(m.name, (e, p) => createMerchantUser(m._id, e, p))) && reload()}>+ مستخدم</button>
-                    </td>
-                    <td className="p-2">{m.createdAt ? new Date(m.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" }) : "-"}</td>
-                    <td className="p-2 space-x-2 space-x-reverse">
-                      <button className="px-2 py-1 bg-blue-600 rounded" onClick={() => handleRotate(m)}>{m.hasActiveKey ? "تغيير" : "إنشاء"}</button>
-                      {m.hasActiveKey && <button className="px-2 py-1 bg-red-600 rounded" onClick={() => handleRevoke(m)}>إلغاء</button>}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr><td colSpan={6} className="p-4">لا يوجد تجار</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+      <Modal open={dialog?.kind === "key"} onClose={() => setDialog(null)} title={dialog?.kind === "key" ? `مفتاح الربط: ${dialog.name}` : ""}>
+        {dialog?.kind === "key" && <SecretReveal label="مفتاح API" value={dialog.apiKey} note="انسخ المفتاح الآن. لن يظهر مرة أخرى، ولا نحتفظ إلا بنسخة مشفّرة منه." />}
+      </Modal>
+
+      {dialog?.kind === "fee" && <FeeDialog merchant={dialog.merchant} onClose={() => setDialog(null)} onSaved={reload} />}
+
+      <Modal open={dialog?.kind === "user"} onClose={() => setDialog(null)} title={dialog?.kind === "user" ? `حساب بوابة: ${dialog.merchant.name}` : ""} description="يرى التاجر شحناته وكشف حسابه فقط.">
+        {dialog?.kind === "user" && (
+          <AccountForm
+            onSubmit={async (email, password) => {
+              await createMerchantUser(dialog.merchant._id, email, password);
+              toast(`تم إنشاء حساب ${email}`);
+              setDialog(null);
+              reload();
+            }}
+          />
+        )}
+      </Modal>
+    </>
+  );
+}
+
+function AddMerchant({ open, onClose, onCreated }: { open: boolean; onClose(): void; onCreated(name: string, apiKey: string | null): void }) {
+  const { toast } = useFeedback();
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      const { merchant, apiKey } = await createMerchant(name.trim());
+      toast(`تمت إضافة ${merchant.name}`);
+      setName("");
+      onCreated(merchant.name, apiKey);
+    } catch (err) {
+      toast(errorMessage(err), "danger");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="تاجر جديد" description="يُنشأ له مفتاح ربط تلقائيًا ويظهر لك مرة واحدة.">
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="اسم التاجر">{(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} autoFocus />}</Field>
+        <Button type="submit" loading={saving} className="w-full">
+          إضافة التاجر
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+
+function FeeDialog({ merchant, onClose, onSaved }: { merchant: Merchant; onClose(): void; onSaved(): void }) {
+  const { toast } = useFeedback();
+  const [fee, setFee] = useState(merchant.companyFee === null ? "" : String(merchant.companyFee));
+  const [saving, setSaving] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      await updateMerchant(merchant._id, { companyFee: fee.trim() === "" ? null : Number(fee) });
+      toast("تم حفظ العمولة");
+      onSaved();
+      onClose();
+    } catch (err) {
+      toast(errorMessage(err), "danger");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title={`عمولة الشركة: ${merchant.name}`} description="تُطبَّق على الشحنات التي تُسلَّم بعد الحفظ. اتركها فارغة لاستخدام العمولة الافتراضية من الإعدادات.">
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="العمولة لكل شحنة مسلّمة">{(p) => <Input {...p} type="number" min={0} step="0.01" dir="ltr" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="الافتراضية" autoFocus />}</Field>
+        <Button type="submit" loading={saving} className="w-full">
+          حفظ
+        </Button>
+      </form>
+    </Modal>
   );
 }

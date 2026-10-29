@@ -1,190 +1,217 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
+import { UserPlus, KeyRound, ShieldCheck, Users, ScrollText } from "lucide-react";
 import type { Role } from "@masar/shared";
-import type { UserRow, AuditEventRow } from "@/lib/types";
-import { useEffect, useState } from "react";
 import { getUsers, getAuditLogs, createUser, changePassword, changeRole } from "@/lib/resources-api";
-import { errorMessage } from "@/lib/errors";
-import { formatDate } from "@/lib/format-date";
-import Pagination from "@/components/ui/Pagination";
-import { ROLE_LABELS } from "@/lib/roles";
 import { useAuth } from "@/app/auth-context";
-import { PASSWORD_HINT } from "@/features/auth/components/ChangePasswordForm";
+import { PageHeader, Panel } from "@/components/ui/Panel";
+import { Tabs } from "@/components/ui/Tabs";
+import { DataTable } from "@/components/ui/DataTable";
+import { Button } from "@/components/ui/Button";
+import { Field, Input, Select } from "@/components/ui/Field";
+import { Modal } from "@/components/ui/Overlay";
+import { Badge } from "@/components/ui/Status";
+import Pagination from "@/components/ui/Pagination";
+import { AccountForm } from "@/components/forms/AccountForm";
+import { useFeedback } from "@/components/ui/feedback-context";
+import { errorMessage } from "@/lib/errors";
+import { formatDateTime } from "@/lib/format-date";
+import { ROLE_LABELS } from "@/lib/roles";
+import type { UserRow, AuditEventRow } from "@/lib/types";
 
-const ACTION_LABELS: Record<string, string> = {
-  CREATE_USER: "إضافة موظف",
-  CHANGE_PASSWORD: "تغيير باسورد",
+const ACTIONS: Record<string, string> = {
+  CREATE_USER: "إضافة مستخدم",
+  CHANGE_PASSWORD: "تعيين كلمة مرور",
+  CHANGE_OWN_PASSWORD: "تغيير كلمة المرور",
   CHANGE_ROLE: "تغيير الدور",
-  CHANGE_OWN_PASSWORD: "تغيير الباسورد الشخصي",
   CREATE: "إضافة",
   UPDATE: "تعديل",
-  STATUS_CHANGE: "تغيير الحالة",
+  STATUS_CHANGE: "تغيير حالة شحنة",
   DELETE: "حذف",
   RENAME: "تغيير الاسم",
   ROTATE_API_KEY: "تغيير مفتاح API",
   REVOKE_API_KEY: "إلغاء مفتاح API",
+  UPDATE_SETTINGS: "تعديل الإعدادات",
 };
-const ENTITY_LABELS: Record<string, string> = { user: "موظف", order: "شحنة", merchant: "تاجر", courier: "مندوب" };
+const ENTITIES: Record<string, string> = { user: "مستخدم", order: "شحنة", merchant: "تاجر", courier: "مندوب", settings: "الإعدادات" };
+const ROLE_TONE: Record<Role, "info" | "ok" | "neutral" | "warn"> = { owner: "warn", admin: "info", employee: "neutral", courier: "ok", merchant: "neutral" };
 
-const describeChanges = (changes: AuditEventRow["changes"]) =>
-  Object.entries(changes || {})
-    .filter(([field]) => field !== "order")
-    .map(([field, { from, to }]) => `${field}: ${from ?? "-"} ← ${to ?? "-"}`)
-    .join("، ");
+type Dialog = { kind: "add" } | { kind: "password"; user: UserRow } | { kind: "role"; user: UserRow } | null;
 
-export default function Employee() {
-  const { user } = useAuth();
-  const [employees, setEmployees] = useState<UserRow[]>([]);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export default function UsersPage() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") === "audit" ? "audit" : "team";
+  return (
+    <>
+      <PageHeader title="المستخدمون والسجل" description="فريق الشركة وحسابات المناديب والتجار، وسجل كل تعديل حساس." />
+      <Tabs
+        className="mb-5"
+        value={tab}
+        onChange={(t) => setParams({ tab: t })}
+        tabs={[
+          { value: "team", label: "المستخدمون" },
+          { value: "audit", label: "سجل التعديلات" },
+        ]}
+      />
+      {tab === "team" ? <Team /> : <Audit />}
+    </>
+  );
+}
 
-  const [editId, setEditId] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-
-  const [roleId, setRoleId] = useState("");
-  const [newRole, setNewRole] = useState<Role>("employee");
-
-  const [logs, setLogs] = useState<{ items: AuditEventRow[]; page: number; pages: number }>({ items: [], page: 1, pages: 0 });
-  const [logPage, setLogPage] = useState(1);
+function Team() {
+  const { user: me } = useAuth();
+  const { toast } = useFeedback();
+  const [users, setUsers] = useState<UserRow[] | null>(null);
+  const [dialog, setDialog] = useState<Dialog>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
-    getUsers().then(setEmployees).catch((err) => alert(errorMessage(err)));
-  }, [reloadKey]);
-
-  useEffect(() => {
-    getAuditLogs({ page: logPage, limit: 20 })
-      .then(({ data, meta }) => setLogs({ items: data, ...meta }))
-      .catch((err) => console.error(err));
-  }, [logPage, reloadKey]);
-
-  const run = async (action: () => Promise<unknown>, success: string) => {
-    try {
-      await action();
-      alert(success);
-      reload();
-      return true;
-    } catch (err) {
-      alert("فشل ❌: " + errorMessage(err));
-      return false;
-    }
-  };
-
-  const handleAdd = async () => {
-    if (!email || !password) return alert("املأ كل الحقول");
-    if (await run(() => createUser({ email, password, role: "employee" }), "تمت الإضافة ✅ (باسورد مؤقت: سيطلب من الموظف تغييره عند أول دخول)")) {
-      setEmail("");
-      setPassword("");
-    }
-  };
-
-  const handleChangePassword = async () => {
-    if (!editId || !newPassword) return alert("اختر الموظف وأدخل الباسورد");
-    if (await run(() => changePassword(editId, newPassword), "تم تغيير الباسورد ✅ (باسورد مؤقت: سيطلب من الموظف تغييره عند الدخول)")) {
-      setEditId("");
-      setNewPassword("");
-    }
-  };
-
-  const handleChangeRole = async () => {
-    if (!roleId) return alert("اختر الموظف والدور");
-    if (await run(() => changeRole(roleId, newRole), "تم تغيير الدور ✅")) setRoleId("");
-  };
-
-  const employeeSelect = (value: string, onChange: (id: string) => void) => (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="border p-2 rounded">
-      <option value="">اختر موظف</option>
-      {employees.map((e) => (
-        <option key={e.id} value={e.id}>{e.email}</option>
-      ))}
-    </select>
-  );
+    getUsers().then(setUsers).catch((err) => toast(errorMessage(err), "danger"));
+  }, [reloadKey, toast]);
 
   return (
-    <div className="p-6 space-y-10">
-      {/* ADD */}
-      <div className="border p-4 rounded-lg shadow">
-        <h2 className="text-xl font-bold mb-3">➕ إضافة موظف</h2>
-        <div className="flex gap-3 flex-wrap">
-          <input type="email" placeholder="الإيميل" value={email} onChange={(e) => setEmail(e.target.value)} className="border p-2 rounded" />
-          <input type="password" placeholder={`الباسورد (${PASSWORD_HINT})`} value={password} onChange={(e) => setPassword(e.target.value)} className="border p-2 rounded min-w-[260px]" />
-          <button onClick={handleAdd} className="bg-green-600 hover:bg-green-700 text-white px-4 rounded">إضافة</button>
-        </div>
-      </div>
+    <>
+      <Panel title="المستخدمون" action={<Button size="sm" icon={<UserPlus className="size-4" />} onClick={() => setDialog({ kind: "add" })}>موظف جديد</Button>}>
+        <DataTable
+          caption="المستخدمون"
+          loading={!users}
+          rows={users ?? []}
+          rowKey={(u) => u.id}
+          columns={[
+            { key: "email", header: "البريد الإلكتروني", primary: true, cell: (u) => <span dir="ltr" className="font-medium text-ink">{u.email}</span> },
+            { key: "role", header: "الدور", cell: (u) => <Badge tone={ROLE_TONE[u.role]}>{ROLE_LABELS[u.role]}</Badge> },
+            { key: "pw", header: "كلمة المرور", cell: (u) => (u.mustChangePassword ? <Badge tone="warn">مؤقتة</Badge> : <span className="text-ink-3">مُعيّنة</span>) },
+          ]}
+          rowActions={(u) =>
+            u.id !== me?.id &&
+            !["courier", "merchant"].includes(u.role) &&
+            (u.role !== "owner" || me?.role === "owner") && (
+              <div className="flex gap-1">
+                <Button variant="quiet" size="sm" icon={<KeyRound className="size-4" />} onClick={() => setDialog({ kind: "password", user: u })}>
+                  كلمة مرور
+                </Button>
+                <Button variant="quiet" size="sm" icon={<ShieldCheck className="size-4" />} onClick={() => setDialog({ kind: "role", user: u })}>
+                  الدور
+                </Button>
+              </div>
+            )
+          }
+          empty={{ icon: <Users />, title: "لا يوجد مستخدمون" }}
+        />
+      </Panel>
 
-      {/* TABLE */}
-      <div>
-        <h2 className="text-xl font-bold mb-3">📋 الموظفون</h2>
-        <table className="w-full border text-center">
-          <thead>
-            <tr>
-              <th className="p-2 border">الإيميل</th>
-              <th className="p-2 border">الدور</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map((emp) => (
-              <tr key={emp.id}>
-                <td className="p-2 border">{emp.email}</td>
-                <td className="p-2 border">{ROLE_LABELS[emp.role] || emp.role}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Modal open={dialog?.kind === "add"} onClose={() => setDialog(null)} title="موظف جديد" description="يدخل الموظف بكلمة مرور مؤقتة ويغيّرها عند أول دخول.">
+        <AccountForm
+          submitLabel="إضافة الموظف"
+          onSubmit={async (email, password) => {
+            await createUser({ email, password, role: "employee" });
+            toast(`تمت إضافة ${email}`);
+            setDialog(null);
+            reload();
+          }}
+        />
+      </Modal>
+      {dialog?.kind === "password" && <PasswordDialog user={dialog.user} onClose={() => setDialog(null)} onDone={reload} />}
+      {dialog?.kind === "role" && <RoleDialog user={dialog.user} canGrantOwner={me?.role === "owner"} onClose={() => setDialog(null)} onDone={reload} />}
+    </>
+  );
+}
 
-      {/* CHANGE PASSWORD */}
-      <div className="border p-4 rounded-lg shadow">
-        <h2 className="text-xl font-bold mb-3">🔑 تغيير باسورد</h2>
-        <div className="flex gap-3 flex-wrap">
-          {employeeSelect(editId, setEditId)}
-          <input type="password" placeholder={`باسورد جديد (${PASSWORD_HINT})`} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="border p-2 rounded min-w-[260px]" />
-          <button onClick={handleChangePassword} className="bg-blue-600 text-white px-4 rounded">تغيير</button>
-        </div>
-      </div>
+function PasswordDialog({ user, onClose, onDone }: { user: UserRow; onClose(): void; onDone(): void }) {
+  const { toast } = useFeedback();
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      await changePassword(user.id, password);
+      toast("تم تعيين كلمة مرور مؤقتة؛ سيُطلب تغييرها عند الدخول");
+      onDone();
+      onClose();
+    } catch (err) {
+      toast(errorMessage(err), "danger");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title={`كلمة مرور مؤقتة: ${user.email}`} description="سيُسجَّل خروج المستخدم من كل الأجهزة.">
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="كلمة المرور المؤقتة" hint="10 أحرف على الأقل، وتحتوي على حروف وأرقام">{(p) => <Input {...p} dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />}</Field>
+        <Button type="submit" loading={saving} className="w-full">
+          تعيين
+        </Button>
+      </form>
+    </Modal>
+  );
+}
 
-      {/* CHANGE ROLE */}
-      <div className="border p-4 rounded-lg shadow">
-        <h2 className="text-xl font-bold mb-3">🛡️ تغيير الدور</h2>
-        <div className="flex gap-3 flex-wrap">
-          {employeeSelect(roleId, setRoleId)}
-          <select value={newRole} onChange={(e) => setNewRole(e.target.value as Role)} className="border p-2 rounded">
-            <option value="employee">موظف</option>
-            <option value="admin">أدمين</option>
-            {user?.role === "owner" && <option value="owner">مالك</option>}
-          </select>
-          <button onClick={handleChangeRole} className="bg-purple-600 text-white px-4 rounded">تغيير</button>
-        </div>
-      </div>
+function RoleDialog({ user, canGrantOwner, onClose, onDone }: { user: UserRow; canGrantOwner: boolean; onClose(): void; onDone(): void }) {
+  const { toast } = useFeedback();
+  const [role, setRole] = useState<Role>(user.role);
+  const [saving, setSaving] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      await changeRole(user.id, role);
+      toast("تم تغيير الدور");
+      onDone();
+      onClose();
+    } catch (err) {
+      toast(errorMessage(err), "danger");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title={`دور ${user.email}`} description="يُطبَّق فورًا ويُسجَّل خروج المستخدم من الأجهزة الأخرى.">
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="الدور" hint="المدير يدير كل شيء عدا حسابات المالكين. الموظف يدير الشحنات فقط.">
+          {(p) => (
+            <Select {...p} value={role} onChange={(e) => setRole(e.target.value as Role)}>
+              <option value="employee">موظف</option>
+              <option value="admin">مدير</option>
+              {canGrantOwner && <option value="owner">مالك</option>}
+            </Select>
+          )}
+        </Field>
+        <Button type="submit" loading={saving} className="w-full" disabled={role === user.role}>
+          حفظ الدور
+        </Button>
+      </form>
+    </Modal>
+  );
+}
 
-      {/* AUDIT LOG */}
-      <div>
-        <h2 className="text-xl font-bold mb-3">🧾 سجل التعديلات</h2>
-        <table className="w-full border text-center">
-          <thead>
-            <tr>
-              <th className="p-2 border">العملية</th>
-              <th className="p-2 border">النوع</th>
-              <th className="p-2 border">على</th>
-              <th className="p-2 border">التغييرات</th>
-              <th className="p-2 border">بواسطة</th>
-              <th className="p-2 border">التاريخ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.items.map((log) => (
-              <tr key={log._id}>
-                <td className="p-2 border">{ACTION_LABELS[log.action] || log.action}</td>
-                <td className="p-2 border">{ENTITY_LABELS[log.entity] || log.entity}</td>
-                <td className="p-2 border">{log.label || "-"}</td>
-                <td className="p-2 border text-sm" dir="auto">{describeChanges(log.changes) || "-"}</td>
-                <td className="p-2 border">{log.actor?.email || "-"}</td>
-                <td className="p-2 border">{formatDate(log.createdAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <Pagination page={logPage} pages={logs.pages} onChange={setLogPage} />
-      </div>
-    </div>
+function Audit() {
+  const { toast } = useFeedback();
+  const [page, setPage] = useState(1);
+  const [result, setResult] = useState<{ items: AuditEventRow[]; pages: number } | null>(null);
+  useEffect(() => {
+    getAuditLogs({ page, limit: 25 })
+      .then(({ data, meta }) => setResult({ items: data, pages: meta.pages }))
+      .catch((err) => toast(errorMessage(err), "danger"));
+  }, [page, toast]);
+
+  return (
+    <Panel>
+      <DataTable
+        caption="سجل التعديلات"
+        loading={!result}
+        rows={result?.items ?? []}
+        rowKey={(e) => e._id}
+        columns={[
+          { key: "action", header: "العملية", primary: true, cell: (e) => <span className="font-medium text-ink">{ACTIONS[e.action] ?? e.action}</span> },
+          { key: "entity", header: "على", cell: (e) => <span className="text-ink-2">{ENTITIES[e.entity] ?? e.entity} <span dir="auto" className="num">{e.label}</span></span> },
+          { key: "actor", header: "بواسطة", cell: (e) => <span dir="ltr" className="text-ink-2">{e.actor?.email ?? "الربط مع التاجر"}</span> },
+          { key: "at", header: "الوقت", cell: (e) => <span className="num text-ink-3">{formatDateTime(e.createdAt)}</span> },
+        ]}
+        empty={{ icon: <ScrollText />, title: "لا توجد تعديلات مسجلة بعد" }}
+      />
+      <Pagination page={page} pages={result?.pages ?? 0} onChange={setPage} />
+    </Panel>
   );
 }
