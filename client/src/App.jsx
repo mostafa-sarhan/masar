@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 
 import Login from "./Login";
@@ -12,12 +12,12 @@ import Orders from "./Orders";
 import Adddelivery from "./Adddelivery";
 import Alldelivery from "./Alldelivery";
 import Archive from "./Archive";
-import ReportDelivery from "./ReportDelivery";
 import Member from "./Member";
-import Company from "./Company";
-import Account from "./Account";
 import Employee from "./Employee";
 import Settings from "./Settings";
+import Reports from "./Reports";
+import Couriers from "./Couriers";
+import ImportOrders from "./ImportOrders";
 import PlatformApp from "./platform/PlatformApp";
 import { ADMIN_ROLES, STAFF_ROLES } from "./utils/roles";
 import CourierApp from "./CourierApp";
@@ -51,10 +51,14 @@ function App() {
         <Route path="/adddelivery" element={<Adddelivery />} />
         <Route path="/alldelivery" element={<Alldelivery />} />
         <Route path="/archive" element={<Archive />} />
-        <Route path="/reportdelivery" element={adminOnly(<ReportDelivery />)} />
+        <Route path="/reports" element={adminOnly(<Reports />)} />
+        <Route path="/couriers" element={adminOnly(<Couriers />)} />
+        <Route path="/import" element={<ImportOrders />} />
+        {/* Old report pages now live under Reports */}
+        <Route path="/reportdelivery" element={<Navigate to="/reports?tab=couriers" replace />} />
         <Route path="/member" element={adminOnly(<Member />)} />
-        <Route path="/company" element={adminOnly(<Company />)} />
-        <Route path="/accounts" element={adminOnly(<Account />)} />
+        <Route path="/company" element={<Navigate to="/reports?tab=summary" replace />} />
+        <Route path="/accounts" element={<Navigate to="/reports?tab=statement" replace />} />
         <Route path="/employee" element={adminOnly(<Employee />)} />
         <Route path="/settings" element={adminOnly(<Settings />)} />
       </Route>

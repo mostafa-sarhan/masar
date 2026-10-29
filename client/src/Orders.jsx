@@ -6,6 +6,7 @@ import { isAdmin as isAdminRole } from "./utils/roles";
 import { usePagedOrders } from "./hooks/usePagedOrders";
 import FormOrder from "./FormOrder";
 import OrderDetails from "./OrderDetails";
+import BulkActions from "./BulkActions";
 import CourierSelect from "./CourierSelect";
 import MerchantSelect from "./MerchantSelect";
 import Pagination from "./Pagination";
@@ -21,6 +22,8 @@ export default function Orders() {
   const isAdmin = isAdminRole(user?.role);
   const [editingOrder, setEditingOrder] = useState(null);
   const [detailsId, setDetailsId] = useState(null);
+  // Selected orders on the current page (cleared when the page or filters change).
+  const [selected, setSelected] = useState({});
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -29,10 +32,19 @@ export default function Orders() {
   const setFilter = (name) => (value) => {
     setFilters((f) => ({ ...f, [name]: value }));
     setPage(1);
+    setSelected({});
+  };
+  const goToPage = (p) => {
+    setPage(p);
+    setSelected({});
   };
   const { search, merchant, status, courier, date } = filters;
 
   const { loading, ...result } = usePagedOrders({ ...filters, page, limit: PAGE_SIZE }, reloadKey);
+  const selectedOrders = result.items.filter((o) => selected[o._id]);
+  const toggle = (id) => setSelected((s) => ({ ...s, [id]: !s[id] }));
+  const allSelected = result.items.length > 0 && selectedOrders.length === result.items.length;
+  const toggleAll = () => setSelected(allSelected ? {} : Object.fromEntries(result.items.map((o) => [o._id, true])));
 
   const handleUpdate = async (changes) => {
     try {
@@ -96,8 +108,19 @@ export default function Orders() {
             الإجمالي: <p>{result.totalCost}</p>
           </div>
         </div>
-        <OrdersHeader lastColumn="الأمر" />
+        <OrdersHeader lastColumn="الأمر" selection={{ all: allSelected, onToggleAll: toggleAll }} />
       </div>
+
+      {selectedOrders.length > 0 && (
+        <BulkActions
+          selected={selectedOrders}
+          onClear={() => setSelected({})}
+          onDone={() => {
+            setSelected({});
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
 
       {/* Rows */}
       {loading ? (
@@ -108,6 +131,8 @@ export default function Orders() {
             <OrderRow
               order={order}
               index={(page - 1) * PAGE_SIZE + i + 1}
+              selected={!!selected[order._id]}
+              onToggle={() => toggle(order._id)}
               actions={
                 <>
                   {isAdmin && (
@@ -130,7 +155,7 @@ export default function Orders() {
         <p className="text-center my-4">لا توجد أوردرات</p>
       )}
 
-      <Pagination page={page} pages={result.pages} onChange={setPage} />
+      <Pagination page={page} pages={result.pages} onChange={goToPage} />
 
       {detailsId && <OrderDetails orderId={detailsId} onClose={() => setDetailsId(null)} />}
 

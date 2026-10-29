@@ -1,18 +1,11 @@
-import Money from "./Money";
 import React, { useEffect, useState } from "react";
-import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, getMerchantReport, updateMerchant } from "./services/resourcesApi";
+import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, updateMerchant } from "./services/resourcesApi";
 import { errorMessage } from "./services/errors";
-import FeeInputs from "./FeeInputs";
 import { createMerchantUser } from "./services/portalsApi";
 import { promptAccount } from "./utils/promptAccount";
 
-const COUNT_COLUMNS = ["delivered", "returned", "refused", "pending", "exchanged", "with_courier"];
-
 export default function Member() {
   const [merchants, setMerchants] = useState([]);
-  const [report, setReport] = useState([]);
-  const [fees, setFees] = useState({ courierFee: "", companyFee: "" });
-  const [defaults, setDefaults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -22,16 +15,10 @@ export default function Member() {
   const [newKey, setNewKey] = useState(null); // { name, apiKey } shown once
 
   useEffect(() => {
-    Promise.all([getMerchants(), getMerchantReport({ archived: "all", ...fees })])
-      .then(([merchantList, { data, meta }]) => {
-        setMerchants(merchantList);
-        setReport(data.filter((r) => r.merchant));
-        setDefaults(meta.fees);
-      })
+    getMerchants()
+      .then(setMerchants)
       .catch((err) => alert(errorMessage(err)))
       .finally(() => setLoading(false));
-    // fees are applied on blur via reloadKey
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey]);
 
   const reload = () => setReloadKey((k) => k + 1);
@@ -96,69 +83,6 @@ export default function Member() {
         <button className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded" onClick={() => setShowAdd(true)}>
           ➕ إضافة تاجر
         </button>
-        <FeeInputs value={fees} onChange={setFees} defaults={defaults} onApply={reload} showCourier={false} />
-      </div>
-
-      {/* Orders by merchant */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">ملخص أوردرات التجار</h2>
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-center text-sm">
-            <thead className="bg-gray-800 text-white">
-              <tr>
-                <th className="p-2 border">التاجر</th>
-                <th className="p-2 border">الإجمالي</th>
-                <th className="p-2 border">تم التسليم</th>
-                <th className="p-2 border">مرتجع</th>
-                <th className="p-2 border">مرفوض</th>
-                <th className="p-2 border">قيد التنفيذ</th>
-                <th className="p-2 border">استبدال</th>
-                <th className="p-2 border">مع المندوب</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.map((r) => (
-                <tr key={r.merchant._id} className="border-b hover:bg-gray-800">
-                  <td className="p-2 font-bold">{r.merchant.name}</td>
-                  <td className="p-2">{r.total.count}</td>
-                  {COUNT_COLUMNS.map((s) => (
-                    <td key={s} className="p-2">{r.byStatus[s]?.count ?? 0}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Money by merchant (server formula) */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">الحسابات المالية للتجار</h2>
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full text-center text-sm">
-            <thead className="bg-gray-800">
-              <tr>
-                <th className="p-2 border">التاجر</th>
-                <th className="p-2 border">عدد المسلّم</th>
-                <th className="p-2 border">إجمالي المسلّم</th>
-                <th className="p-2 border">عمولة الشركة</th>
-                <th className="p-2 border">مستخدمو البوابة</th>
-                <th className="p-2 border">صافي التاجر</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.map(({ merchant, money }) => (
-                <tr key={merchant._id} className="border-b hover:bg-gray-800">
-                  <td className="p-2 font-bold">{merchant.name}</td>
-                  <td className="p-2">{money.deliveredCount}</td>
-                  <td className="p-2"><Money value={money.deliveredTotal} /></td>
-                  <td className="p-2 text-yellow-400"><Money value={money.companyCommission} /></td>
-                  <td className="p-2 text-green-500 font-bold"><Money value={money.merchantNet} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
 
       {/* Add merchant */}

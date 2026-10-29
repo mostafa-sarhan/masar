@@ -46,6 +46,7 @@ const labelHtml = (o) => `
   </div>`;
 
 export const printLabel = (order) => printDocument("ملصق شحنة", labelHtml(order));
+export const printLabels = (orders) => printDocument("ملصقات الشحنات", orders.map(labelHtml).join(""));
 
 const total = (orders) => orders.reduce((sum, o) => sum + (Number(o.cost) || 0), 0);
 

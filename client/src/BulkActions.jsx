@@ -1,0 +1,42 @@
+import { useState } from "react";
+import CourierSelect from "./CourierSelect";
+import { bulkAssign, bulkStatus } from "./services/ordersApi";
+import { errorMessage } from "./services/errors";
+import { printLabels } from "./utils/print";
+import { ORDER_STATUSES, statusLabel } from "./utils/orderStatus";
+
+// Action bar for selected orders. The server validates everything and applies all-or-nothing.
+export default function BulkActions({ selected, onDone, onClear }) {
+  const [courier, setCourier] = useState("");
+  const [status, setStatus] = useState("");
+  const ids = selected.map((o) => o._id);
+
+  const run = async (action, success) => {
+    try {
+      await action();
+      alert(success);
+      onDone();
+    } catch (err) {
+      alert(errorMessage(err));
+    }
+  };
+
+  return (
+    <div className="w-[98%] m-auto my-2 p-3 rounded-lg bg-edit flex flex-wrap gap-3 items-center">
+      <strong>{selected.length} محدد</strong>
+      <CourierSelect value={courier} onChange={setCourier} />
+      <button disabled={!courier} onClick={() => run(() => bulkAssign(ids, courier), "تم تسليم الأوردرات للمندوب ✅")} className="bg-green-600 px-3 py-2 rounded disabled:opacity-50">
+        تسليم للمندوب
+      </button>
+      <select value={status} onChange={(e) => setStatus(e.target.value)} className="border-2 rounded-lg px-3 py-2 text-black bg-white">
+        <option value="">تغيير الحالة إلى...</option>
+        {ORDER_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
+      </select>
+      <button disabled={!status} onClick={() => run(() => bulkStatus(ids.map((id) => ({ id, status }))), "تم تغيير الحالة ✅")} className="bg-blue-600 px-3 py-2 rounded disabled:opacity-50">
+        تطبيق
+      </button>
+      <button onClick={() => printLabels(selected)} className="bg-orange-500 px-3 py-2 rounded">طباعة الملصقات</button>
+      <button onClick={onClear} className="underline">إلغاء التحديد</button>
+    </div>
+  );
+}

@@ -24,21 +24,21 @@ export default function Right() {
       <NavLink to="/archive" className="bg-white w-[85%] text-3xl p-2 rounded">
         الأرشيف
       </NavLink>
+      <NavLink to="/import" className="bg-white w-[85%] text-3xl p-2 rounded">
+        استيراد Excel
+      </NavLink>
 
       {/* العناصر الخاصة بالأدمن فقط */}
       {isAdmin(user?.role) && (
         <>
-          <NavLink to="/reportdelivery" className="bg-white w-[85%] text-3xl p-2 rounded">
-            تقارير المناديب
+          <NavLink to="/reports" className="bg-white w-[85%] text-3xl p-2 rounded">
+            التقارير
+          </NavLink>
+          <NavLink to="/couriers" className="bg-white w-[85%] text-3xl p-2 rounded">
+            المناديب
           </NavLink>
           <NavLink to="/member" className="bg-white w-[85%] text-3xl p-2 rounded">
             التجار
-          </NavLink>
-          <NavLink to="/company" className="bg-white w-[85%] text-3xl p-2 rounded">
-            الشركات
-          </NavLink>
-          <NavLink to="/accounts" className="bg-white w-[85%] text-3xl p-2 rounded">
-            الحسابات
           </NavLink>
           <NavLink to="/employee" className="bg-white w-[85%] text-3xl p-2 rounded">
             الموظفون

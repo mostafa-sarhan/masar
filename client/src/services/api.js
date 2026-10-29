@@ -19,13 +19,16 @@ function buildUrl(path, params) {
   return `${API_URL}${path}${qs ? `?${qs}` : ""}`;
 }
 
-async function send(path, { method = "GET", body, params } = {}) {
+// JSON by default; FormData bodies are sent as multipart; `raw` returns the Blob (downloads).
+async function send(path, { method = "GET", body, params, raw = false } = {}) {
+  const isForm = body instanceof FormData;
   const res = await fetch(buildUrl(path, params), {
     method,
     credentials: "include", // httpOnly session cookies
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: body === undefined || isForm ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
   });
+  if (raw && res.ok) return res.blob();
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(res.status, json?.error);
   return json;
@@ -71,3 +74,11 @@ export async function request(path, options) {
 
 // Just the data.
 export const api = async (path, options) => (await request(path, options)).data;
+
+// Downloads a file from the API (with the session) and saves it as `fileName`.
+export async function downloadFile(path, fileName) {
+  const blob = await request(path, { raw: true });
+  const url = URL.createObjectURL(blob);
+  Object.assign(document.createElement("a"), { href: url, download: fileName }).click();
+  URL.revokeObjectURL(url);
+}

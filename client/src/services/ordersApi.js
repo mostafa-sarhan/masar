@@ -1,4 +1,4 @@
-import { api, request } from "./api";
+import { api, request, downloadFile } from "./api";
 
 // Filters: search, status, merchant, courier, date, from, to, archived ("true" | "false" | "all")
 
@@ -23,3 +23,11 @@ export const getOrderHistory = (id) => api(`/orders/${id}/history`);
 // Public tracking (no login)
 export const trackShipment = (trackingId) => api(`/track/${encodeURIComponent(trackingId)}`);
 export const trackingUrl = (trackingId) => `${window.location.origin}${window.location.pathname}#/track/${trackingId}`;
+
+// Excel import. mode: "dry-run" (validate only) | "commit" (all-or-nothing)
+export const importOrders = (file, mode) => {
+  const form = new FormData();
+  form.append("file", file);
+  return api("/orders/import", { method: "POST", body: form, params: { mode } });
+};
+export const downloadImportTemplate = () => downloadFile("/orders/import/template", "orders-template.xlsx");
