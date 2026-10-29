@@ -1,7 +1,7 @@
 import mongoose, { HydratedDocument, InferSchemaType } from "mongoose";
 import { randomInt } from "crypto";
-import { ORDER_STATUSES } from "./orderStatus";
-import { tenantScoped, tenantIdField } from "../../lib/tenantPlugin";
+import { ORDER_STATUSES } from "./order-status";
+import { tenantScoped, tenantIdField } from "../../lib/tenant-plugin";
 
 export const generateBarcode = () => randomInt(10_000_000, 100_000_000).toString();
 

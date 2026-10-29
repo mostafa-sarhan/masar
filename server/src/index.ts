@@ -1,8 +1,8 @@
 import { config } from "./config";
-import { logger } from "./logger";
-import { connectDb, disconnectDb } from "./db";
+import { logger } from "./lib/logger";
+import { connectDb, disconnectDb } from "./config/db";
 import { createApp } from "./app";
-import { startArchiveJob } from "./modules/orders/archive.job";
+import { startArchiveJob } from "./jobs/archive-orders.job";
 
 async function main() {
   await connectDb(config.mongoUri);

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { money, objectId } from "../../lib/validate";
-import { listQuerySchema } from "../orders/orders.schemas";
+import { listQuerySchema } from "../orders/orders.schema";
 
 // Optional "what-if" fees (admins only).
 export const feeOverrides = z.object({ courierFee: money.optional(), companyFee: money.optional() });

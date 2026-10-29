@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { ok, created } from "../../lib/respond";
 import { idParams } from "../../lib/validate";
-import { courierBody, accountBody } from "./couriers.schemas";
+import { courierBody, accountBody } from "./couriers.schema";
 import * as couriers from "./couriers.service";
 
 export async function list(req: Request, res: Response) {

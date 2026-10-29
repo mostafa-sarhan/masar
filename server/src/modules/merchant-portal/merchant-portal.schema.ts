@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createOrderSchema, listQuerySchema } from "../orders/orders.schemas";
+import { createOrderSchema, listQuerySchema } from "../orders/orders.schema";
 import { pagination, day } from "../../lib/validate";
 
 // A merchant can't choose the merchant or the courier.

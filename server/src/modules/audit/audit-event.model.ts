@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { tenantScoped, tenantIdField } from "../../lib/tenantPlugin";
+import { tenantScoped, tenantIdField } from "../../lib/tenant-plugin";
 
 export const AUDIT_ENTITIES = ["user", "order", "merchant", "courier", "settings"] as const;
 

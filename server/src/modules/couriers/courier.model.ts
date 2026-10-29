@@ -1,5 +1,5 @@
 import mongoose, { HydratedDocument, InferSchemaType } from "mongoose";
-import { tenantScoped, tenantIdField } from "../../lib/tenantPlugin";
+import { tenantScoped, tenantIdField } from "../../lib/tenant-plugin";
 
 const courierSchema = new mongoose.Schema(
   {

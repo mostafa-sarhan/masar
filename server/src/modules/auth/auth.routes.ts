@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuthAllowingPasswordChange } from "./auth.middleware";
 import * as c from "./auth.controller";
-import { limits } from "../../lib/rateLimit";
+import { limits } from "../../lib/rate-limit";
 
 const router = Router();
 

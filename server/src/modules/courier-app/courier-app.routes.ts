@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../auth/auth.middleware";
-import * as c from "./courierApp.controller";
+import * as c from "./courier-app.controller";
 
 // Courier mobile view API (role courier only).
 const router = Router();

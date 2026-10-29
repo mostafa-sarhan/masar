@@ -2,7 +2,7 @@ import { Request } from "express";
 import mongoose from "mongoose";
 import { Order } from "../orders/order.model";
 import { buildOrderFilter } from "../orders/orders.service";
-import { ListQuery } from "../orders/orders.schemas";
+import { ListQuery } from "../orders/orders.schema";
 import { ADMIN_ROLES } from "../users/user.model";
 import { tenantSettings } from "../tenants/tenants.service";
 import { summarize, FeeOverrides, StatusRow } from "./money";

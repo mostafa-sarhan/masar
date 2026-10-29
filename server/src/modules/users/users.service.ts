@@ -1,16 +1,16 @@
 import { Request } from "express";
 import { z } from "zod";
 import { User, Role, UserDoc, publicUser } from "./user.model";
-import { AuditEvent } from "../audit/auditEvent.model";
+import { AuditEvent } from "../audit/audit-event.model";
 import { recordAudit } from "../audit/audit.service";
 import { assertUserQuota } from "../tenants/tenants.service";
 import { assertStrongPassword, hashPassword } from "../auth/password";
 import { revokeAllSessions } from "../auth/tokens";
 import { AppError, forbidden, notFound } from "../../lib/errors";
 import { scope } from "../../lib/scope";
-import { UNSCOPED } from "../../lib/tenantPlugin";
+import { UNSCOPED } from "../../lib/tenant-plugin";
 import { withTransaction } from "../../lib/transaction";
-import { createUserBody, auditLogQuery } from "./users.schemas";
+import { createUserBody, auditLogQuery } from "./users.schema";
 
 // Only owners can touch owner accounts or hand out the owner role.
 function assertCanManage(req: Request, target: UserDoc | null, newRole?: Role) {

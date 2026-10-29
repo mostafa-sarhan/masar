@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { ok, created } from "../../lib/respond";
-import { importQuery } from "./import.schemas";
+import { importQuery } from "./import.schema";
 import * as imports from "./import.service";
 
 // POST /orders/import?mode=dry-run|commit  (multipart, field "file")

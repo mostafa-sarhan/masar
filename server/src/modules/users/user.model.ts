@@ -1,8 +1,10 @@
 import mongoose, { HydratedDocument, InferSchemaType } from "mongoose";
-import { tenantScoped, tenantIdField } from "../../lib/tenantPlugin";
+import { tenantScoped, tenantIdField } from "../../lib/tenant-plugin";
 
-export const ROLES = ["owner", "admin", "employee", "courier", "merchant"] as const;
-export type Role = (typeof ROLES)[number];
+import { ROLES, type Role } from "@masar/shared";
+
+export { ROLES, ADMIN_ROLES, STAFF_ROLES } from "@masar/shared";
+export type { Role } from "@masar/shared";
 
 const userSchema = new mongoose.Schema(
   {
@@ -29,8 +31,6 @@ userSchema.index({ tenantId: 1, role: 1 });
 export type UserDoc = HydratedDocument<InferSchemaType<typeof userSchema>>;
 export const User = mongoose.model("User", userSchema);
 
-export const ADMIN_ROLES: Role[] = ["owner", "admin"];
-export const STAFF_ROLES: Role[] = ["owner", "admin", "employee"];
 
 export const publicUser = (u: UserDoc) => ({
   id: u._id.toString(),

@@ -1,8 +1,8 @@
 // Create a platform admin, or reset their password:  npm run platform-admin -- admin@example.com
 // The generated password is printed once.
 import { config } from "../config";
-import { connectDb, disconnectDb } from "../db";
-import { PlatformAdmin } from "../modules/platform/platformAdmin.model";
+import { connectDb, disconnectDb } from "../config/db";
+import { PlatformAdmin } from "../modules/platform/platform-admin.model";
 import { hashPassword } from "../modules/auth/password";
 import { generateInitialPassword } from "../modules/platform/platform.service";
 import { str } from "../lib/validate";

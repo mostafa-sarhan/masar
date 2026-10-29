@@ -5,10 +5,10 @@ import { z } from "zod";
 import { Tenant, TenantDoc, PLAN_LIMITS, TRIAL_DAYS, Plan, TENANT_STATUSES } from "../tenants/tenant.model";
 import { User } from "../users/user.model";
 import { assertEmailFree } from "../users/users.service";
-import { PlatformAdmin } from "./platformAdmin.model";
-import { PlatformAuditEvent } from "./platformAuditEvent.model";
-import { AccessRequest, ACCESS_REQUEST_STATUSES } from "./accessRequest.model";
-import { recordPlatformAudit } from "./platformAudit.service";
+import { PlatformAdmin } from "./platform-admin.model";
+import { PlatformAuditEvent } from "./platform-audit-event.model";
+import { AccessRequest, ACCESS_REQUEST_STATUSES } from "./access-request.model";
+import { recordPlatformAudit } from "./platform-audit.service";
 import { hashPassword, verifyPassword, needsRehash, assertStrongPassword } from "../auth/password";
 import {
   signAccessToken,
@@ -23,8 +23,8 @@ import {
 import { diff } from "../audit/audit.service";
 import { AppError, notFound } from "../../lib/errors";
 import { withTransaction } from "../../lib/transaction";
-import { UpdateTenantInput, accessRequestBody } from "./platform.schemas";
-import { loginGuard } from "../../lib/rateLimit";
+import { UpdateTenantInput, accessRequestBody } from "./platform.schema";
+import { loginGuard } from "../../lib/rate-limit";
 
 const guard = loginGuard("platform");
 

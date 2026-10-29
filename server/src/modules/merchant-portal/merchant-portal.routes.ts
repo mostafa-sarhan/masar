@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../auth/auth.middleware";
-import * as c from "./merchantPortal.controller";
+import * as c from "./merchant-portal.controller";
 
 // Merchant portal API (role merchant only; every query is limited to the merchant's own data).
 const router = Router();

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { ok } from "../../lib/respond";
-import { trackingParams } from "./tracking.schemas";
+import { trackingParams } from "./tracking.schema";
 import * as tracking from "./tracking.service";
 
 export async function get(req: Request, res: Response) {

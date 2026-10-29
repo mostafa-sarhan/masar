@@ -1,5 +1,5 @@
 {
-  "name": "express",
+  "name": "@masar/server",
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
@@ -9,12 +9,10 @@
     "archive": "node dist/scripts/archive.js",
     "test": "vitest run",
     "migrate": "node dist/scripts/migrate.js",
-    "platform-admin": "node dist/scripts/platformAdmin.js"
+    "platform-admin": "node dist/scripts/platform-admin.js",
+    "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
@@ -31,7 +29,8 @@
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
     "redis": "^6.3.1",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@masar/shared": "*"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
@@ -49,7 +48,5 @@
     "typescript": "~5.9.3",
     "vitest": "^5.0.5"
   },
-  "overrides": {
-    "uuid": "^11.1.1"
-  }
+  "private": true
 }

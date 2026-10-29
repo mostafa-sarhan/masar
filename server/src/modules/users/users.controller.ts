@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { ok, created } from "../../lib/respond";
 import { idParams } from "../../lib/validate";
-import { createUserBody, setPasswordBody, setRoleBody, auditLogQuery } from "./users.schemas";
+import { createUserBody, setPasswordBody, setRoleBody, auditLogQuery } from "./users.schema";
 import * as users from "./users.service";
 
 export async function list(req: Request, res: Response) {

@@ -18,7 +18,7 @@ export async function loadUsableTenant(id: unknown) {
   return tenant;
 }
 
-export type MerchantDeduction = "company" | "courier";
+import type { MerchantDeduction } from "@masar/shared";
 
 // A tenant's settings with defaults filled in. The one place the rest of the code reads them from.
 export function tenantSettings(t: TenantDoc) {

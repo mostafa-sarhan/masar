@@ -41,11 +41,4 @@ export function monthStart(at: Date, tz: string) {
   return zonedMidnight(y, m - 1, 1, tz);
 }
 
-export function isValidTimezone(tz: string) {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}
+export { isValidTimezone } from "@masar/shared";

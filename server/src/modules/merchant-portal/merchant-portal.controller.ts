@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { ok, created } from "../../lib/respond";
 import { idParams } from "../../lib/validate";
-import { portalOrderBody, portalListQuery, statementQuery } from "./merchantPortal.schemas";
-import * as portal from "./merchantPortal.service";
+import { portalOrderBody, portalListQuery, statementQuery } from "./merchant-portal.schema";
+import * as portal from "./merchant-portal.service";
 
 export async function list(req: Request, res: Response) {
   const { page, limit, ...q } = portalListQuery.parse(req.query);

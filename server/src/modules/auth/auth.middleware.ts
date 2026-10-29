@@ -3,7 +3,7 @@ import { User, Role, ADMIN_ROLES, STAFF_ROLES } from "../users/user.model";
 import { AppError, forbidden } from "../../lib/errors";
 import { cookieNames, verifyAccessToken } from "./tokens";
 import { loadUsableTenant } from "../tenants/tenants.service";
-import { limits } from "../../lib/rateLimit";
+import { limits } from "../../lib/rate-limit";
 
 // Authenticates a tenant user via the httpOnly access-token cookie. User and tenant are re-read on
 // every request, so role changes, bumped tokenVersions and tenant suspension apply immediately.

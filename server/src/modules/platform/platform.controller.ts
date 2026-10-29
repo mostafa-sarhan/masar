@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { ok, created } from "../../lib/respond";
 import { idParams, pagination } from "../../lib/validate";
-import { loginBody, changePasswordBody } from "../auth/auth.schemas";
+import { loginBody, changePasswordBody } from "../auth/auth.schema";
 import { cookieNames } from "../auth/tokens";
-import { recordPlatformAudit } from "./platformAudit.service";
-import { tenantListQuery, createTenantBody, updateTenantBody, accessRequestListQuery, approveBody, rejectBody, accessRequestBody } from "./platform.schemas";
+import { recordPlatformAudit } from "./platform-audit.service";
+import { tenantListQuery, createTenantBody, updateTenantBody, accessRequestListQuery, approveBody, rejectBody, accessRequestBody } from "./platform.schema";
 import * as platform from "./platform.service";
 
 const refreshCookie = (req: Request) => req.cookies?.[cookieNames("platform").refresh];

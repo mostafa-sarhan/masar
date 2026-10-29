@@ -23,10 +23,10 @@ vi.hoisted(() => {
 
 import request from "supertest";
 import { app, useDb, createUser, createTenant, loginAs, PASSWORD } from "./helpers";
-import { PlatformAdmin } from "../src/modules/platform/platformAdmin.model";
+import { PlatformAdmin } from "../src/modules/platform/platform-admin.model";
 import { hashPassword } from "../src/modules/auth/password";
 import { parseTrustProxy } from "../src/config";
-import { MemoryStore, MongoStore } from "../src/lib/rateLimit/store";
+import { MemoryStore, MongoStore } from "../src/lib/rate-limit/store";
 
 useDb();
 

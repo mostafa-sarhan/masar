@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app, useDb, loginAs, loginPlatform, createTenant } from "./helpers";
-import { PlatformAuditEvent } from "../src/modules/platform/platformAuditEvent.model";
-import { AccessRequest } from "../src/modules/platform/accessRequest.model";
+import { PlatformAuditEvent } from "../src/modules/platform/platform-audit-event.model";
+import { AccessRequest } from "../src/modules/platform/access-request.model";
 
 useDb();
 
@@ -84,7 +84,7 @@ describe("public access requests", () => {
 
 describe("platform admin password", () => {
   it("a generated password must be changed before using the console", async () => {
-    const { PlatformAdmin } = await import("../src/modules/platform/platformAdmin.model");
+    const { PlatformAdmin } = await import("../src/modules/platform/platform-admin.model");
     const { hashPassword } = await import("../src/modules/auth/password");
     await PlatformAdmin.create({ email: "fresh@platform.test", password: await hashPassword("Generated1pass") });
     const agent = request.agent(app);

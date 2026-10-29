@@ -1,6 +1,6 @@
 import { Request } from "express";
 import mongoose from "mongoose";
-import { AuditEvent, AUDIT_ENTITIES } from "./auditEvent.model";
+import { AuditEvent, AUDIT_ENTITIES } from "./audit-event.model";
 
 type Entity = (typeof AUDIT_ENTITIES)[number];
 export type Changes = Record<string, { from: unknown; to: unknown }>;

@@ -3,7 +3,7 @@ import ExcelJS from "exceljs";
 import mongoose from "mongoose";
 import { Order, freeBarcodes, generateTrackingId } from "../orders/order.model";
 import { Merchant } from "../merchants/merchant.model";
-import { AuditEvent } from "../audit/auditEvent.model";
+import { AuditEvent } from "../audit/audit-event.model";
 import { auditEvent } from "../audit/audit.service";
 import { statusEvent } from "../orders/orders.service";
 import { assertOrderQuota } from "../tenants/tenants.service";
@@ -11,7 +11,7 @@ import { AppError } from "../../lib/errors";
 import { scope } from "../../lib/scope";
 import { withTransaction } from "../../lib/transaction";
 import { config } from "../../config";
-import { importRow, ImportRow, HEADER_ALIASES, TEMPLATE_HEADERS } from "./import.schemas";
+import { importRow, ImportRow, HEADER_ALIASES, TEMPLATE_HEADERS } from "./import.schema";
 
 type RowError = { row: number; field: string; message: string };
 type Parsed = { row: number; data: ImportRow; merchantId: mongoose.Types.ObjectId };

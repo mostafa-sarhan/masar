@@ -2,19 +2,19 @@ import mongoose from "mongoose";
 
 type Db = mongoose.mongo.Db;
 import { hashPassword, isBcryptHash } from "../modules/auth/password";
-import { LEGACY_STATUS_MAP } from "../modules/orders/orderStatus";
-import { hashApiKey } from "../modules/merchants/apiKeys";
+import { LEGACY_STATUS_MAP } from "../modules/orders/order-status";
+import { hashApiKey } from "../modules/merchants/api-keys";
 import { generateTrackingId } from "../modules/orders/order.model";
 import { Order } from "../modules/orders/order.model";
 import { Courier } from "../modules/couriers/courier.model";
 import { Merchant } from "../modules/merchants/merchant.model";
 import { User } from "../modules/users/user.model";
-import { RefreshToken } from "../modules/auth/refreshToken.model";
-import { AuditEvent } from "../modules/audit/auditEvent.model";
+import { RefreshToken } from "../modules/auth/refresh-token.model";
+import { AuditEvent } from "../modules/audit/audit-event.model";
 import { Tenant } from "../modules/tenants/tenant.model";
-import { PlatformAdmin } from "../modules/platform/platformAdmin.model";
-import { PlatformAuditEvent } from "../modules/platform/platformAuditEvent.model";
-import { AccessRequest } from "../modules/platform/accessRequest.model";
+import { PlatformAdmin } from "../modules/platform/platform-admin.model";
+import { PlatformAuditEvent } from "../modules/platform/platform-audit-event.model";
+import { AccessRequest } from "../modules/platform/access-request.model";
 
 export interface Migration {
   name: string;

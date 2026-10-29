@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { useDb, loginAs, seedRefs, orderInput, UNSCOPED } from "./helpers";
-import { AuditEvent } from "../src/modules/audit/auditEvent.model";
+import { AuditEvent } from "../src/modules/audit/audit-event.model";
 
 useDb();
 

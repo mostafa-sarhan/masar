@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { ok } from "../../lib/respond";
-import { updateSettingsBody } from "./settings.schemas";
+import { updateSettingsBody } from "./settings.schema";
 import * as settings from "./settings.service";
 
 export function get(req: Request, res: Response) {

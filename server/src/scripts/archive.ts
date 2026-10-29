@@ -1,8 +1,8 @@
 // One-off archive run, for an external cron when RUN_JOBS=false.
 import { config } from "../config";
-import { logger } from "../logger";
-import { connectDb, disconnectDb } from "../db";
-import { archiveOrders } from "../modules/orders/archive.job";
+import { logger } from "../lib/logger";
+import { connectDb, disconnectDb } from "../config/db";
+import { archiveOrders } from "../jobs/archive-orders.job";
 
 connectDb(config.mongoUri)
   .then(() => archiveOrders())

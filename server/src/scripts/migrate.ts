@@ -2,8 +2,8 @@
 // Run once after deploying Phase B, before users log in.
 import mongoose from "mongoose";
 import { config } from "../config";
-import { logger } from "../logger";
-import { connectDb, disconnectDb } from "../db";
+import { logger } from "../lib/logger";
+import { connectDb, disconnectDb } from "../config/db";
 import { migrations } from "./migrations";
 
 async function main() {

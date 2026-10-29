@@ -2,7 +2,7 @@ import { Order, TRACKING_ID_PATTERN } from "../orders/order.model";
 import { Tenant, tenantBlock } from "../tenants/tenant.model";
 import { tenantSettings } from "../tenants/tenants.service";
 import { notFound } from "../../lib/errors";
-import { UNSCOPED } from "../../lib/tenantPlugin";
+import { UNSCOPED } from "../../lib/tenant-plugin";
 
 // Public status of one order: timeline only. No name, phone, address, notes, reasons, merchant,
 // courier or money. Orders of suspended/expired tenants are hidden.

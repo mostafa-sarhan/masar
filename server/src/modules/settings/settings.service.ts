@@ -4,7 +4,7 @@ import { tenantSettings, TenantSettings } from "../tenants/tenants.service";
 import { recordAudit, diff } from "../audit/audit.service";
 import { notFound } from "../../lib/errors";
 import { withTransaction } from "../../lib/transaction";
-import { UpdateSettingsInput } from "./settings.schemas";
+import { UpdateSettingsInput } from "./settings.schema";
 
 export const getSettings = (req: Request) => tenantSettings(req.tenant!);
 

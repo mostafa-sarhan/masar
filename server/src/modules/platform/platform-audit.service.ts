@@ -1,6 +1,6 @@
 import { Request } from "express";
 import mongoose from "mongoose";
-import { PlatformAuditEvent } from "./platformAuditEvent.model";
+import { PlatformAuditEvent } from "./platform-audit-event.model";
 import { Changes } from "../audit/audit.service";
 
 // Every platform-admin action is recorded.

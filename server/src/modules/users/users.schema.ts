@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ROLES } from "./user.model";
-import { AUDIT_ENTITIES } from "../audit/auditEvent.model";
+import { AUDIT_ENTITIES } from "../audit/audit-event.model";
 import { str, pagination, objectId } from "../../lib/validate";
 
 export const role = z.enum(ROLES);

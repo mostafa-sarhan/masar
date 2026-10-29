@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requirePlatformAdmin, requirePlatformAdminAllowingPasswordChange } from "./platform.middleware";
 import * as c from "./platform.controller";
-import { limits } from "../../lib/rateLimit";
+import { limits } from "../../lib/rate-limit";
 
 const router = Router();
 

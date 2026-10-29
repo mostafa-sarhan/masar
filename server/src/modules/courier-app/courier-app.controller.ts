@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { ok } from "../../lib/respond";
 import { idParams } from "../../lib/validate";
-import { outcomeBody } from "./courierApp.schemas";
-import * as courier from "./courierApp.service";
+import { outcomeBody } from "./courier-app.schema";
+import * as courier from "./courier-app.service";
 
 export async function orders(req: Request, res: Response) {
   ok(res, await courier.openOrders(req));

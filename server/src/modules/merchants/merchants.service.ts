@@ -7,12 +7,12 @@ import { Order, createWithUniqueBarcode } from "../orders/order.model";
 import { statusEvent } from "../orders/orders.service";
 import { recordAudit, diff } from "../audit/audit.service";
 import { loadUsableTenant, assertOrderQuota } from "../tenants/tenants.service";
-import { generateApiKey, hashApiKey } from "./apiKeys";
+import { generateApiKey, hashApiKey } from "./api-keys";
 import { AppError, notFound } from "../../lib/errors";
 import { scope } from "../../lib/scope";
-import { UNSCOPED } from "../../lib/tenantPlugin";
+import { UNSCOPED } from "../../lib/tenant-plugin";
 import { withTransaction } from "../../lib/transaction";
-import { merchantOrderBody } from "./merchants.schemas";
+import { merchantOrderBody } from "./merchants.schema";
 
 // The key identifies merchant and tenant (keys are globally unique hashes). A suspended or
 // expired tenant blocks its merchants' keys too.

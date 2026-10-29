@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
-import { loginGuard } from "../../lib/rateLimit";
+import { loginGuard } from "../../lib/rate-limit";
 import { User, UserDoc, publicUser } from "../users/user.model";
 import { TenantDoc } from "../tenants/tenant.model";
 import { loadUsableTenant } from "../tenants/tenants.service";
 import { recordAudit } from "../audit/audit.service";
 import { AppError } from "../../lib/errors";
-import { UNSCOPED } from "../../lib/tenantPlugin";
+import { UNSCOPED } from "../../lib/tenant-plugin";
 import { withTransaction } from "../../lib/transaction";
 import { verifyPassword, needsRehash, hashPassword, assertStrongPassword } from "./password";
 import { signAccessToken, issueRefreshToken, rotateRefreshToken, revokeRefreshToken, revokeAllSessions, setSessionCookies, clearSessionCookies } from "./tokens";

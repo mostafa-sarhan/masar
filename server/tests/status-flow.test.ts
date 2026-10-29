@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { useDb, loginAs, seedRefs, orderInput, getTenant, UNSCOPED } from "./helpers";
-import { canTransition, ORDER_STATUSES } from "../src/modules/orders/orderStatus";
-import { archiveOrders } from "../src/modules/orders/archive.job";
+import { canTransition, ORDER_STATUSES } from "../src/modules/orders/order-status";
+import { archiveOrders } from "../src/jobs/archive-orders.job";
 import { Order } from "../src/modules/orders/order.model";
 import { updateOrder } from "../src/modules/orders/orders.service";
 

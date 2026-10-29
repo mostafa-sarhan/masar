@@ -3,9 +3,9 @@ import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { Response, CookieOptions } from "express";
 import mongoose from "mongoose";
 import { config } from "../../config";
-import { RefreshToken, Realm } from "./refreshToken.model";
+import { RefreshToken, Realm } from "./refresh-token.model";
 import { User } from "../users/user.model";
-import { PlatformAdmin } from "../platform/platformAdmin.model";
+import { PlatformAdmin } from "../platform/platform-admin.model";
 import { AppError } from "../../lib/errors";
 
 // Two separate session realms with their own cookies, paths and JWT audience:

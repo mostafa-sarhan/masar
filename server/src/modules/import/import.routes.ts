@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth, adminOnly } from "../auth/auth.middleware";
-import { limits } from "../../lib/rateLimit";
-import { xlsxUpload } from "./upload";
+import { limits } from "../../lib/rate-limit";
+import { xlsxUpload } from "./upload.middleware";
 import * as c from "./import.controller";
 
 // Excel order import (owner and admin). Low per-user limit; the limiter runs before the upload is read.

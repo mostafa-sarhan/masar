@@ -1,8 +1,8 @@
 import cron from "node-cron";
-import { Order } from "./order.model";
-import { Tenant } from "../tenants/tenant.model";
-import { FINAL_STATUSES } from "./orderStatus";
-import { logger } from "../../logger";
+import { Order } from "../modules/orders/order.model";
+import { Tenant } from "../modules/tenants/tenant.model";
+import { FINAL_STATUSES } from "../modules/orders/order-status";
+import { logger } from "../lib/logger";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

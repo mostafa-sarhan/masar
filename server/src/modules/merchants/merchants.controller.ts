@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { ok, created } from "../../lib/respond";
 import { idParams } from "../../lib/validate";
 import { AppError } from "../../lib/errors";
-import { createMerchantBody, updateMerchantBody, merchantOrderBody, merchantUserBody } from "./merchants.schemas";
+import { createMerchantBody, updateMerchantBody, merchantOrderBody, merchantUserBody } from "./merchants.schema";
 import * as merchants from "./merchants.service";
 
 // Merchant API-key authentication (header `api-key`).

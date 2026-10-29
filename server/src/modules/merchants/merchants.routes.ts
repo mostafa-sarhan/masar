@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth, adminOnly, staffOnly } from "../auth/auth.middleware";
 import * as c from "./merchants.controller";
-import { limits } from "../../lib/rateLimit";
+import { limits } from "../../lib/rate-limit";
 
 const router = Router();
 

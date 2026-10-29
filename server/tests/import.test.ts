@@ -7,7 +7,7 @@ vi.hoisted(() => {
 import ExcelJS from "exceljs";
 import { useDb, loginAs, seedRefs, createTenant, UNSCOPED } from "./helpers";
 import { Order } from "../src/modules/orders/order.model";
-import { AuditEvent } from "../src/modules/audit/auditEvent.model";
+import { AuditEvent } from "../src/modules/audit/audit-event.model";
 import { TRACKING_ID_PATTERN } from "../src/modules/orders/order.model";
 
 useDb();

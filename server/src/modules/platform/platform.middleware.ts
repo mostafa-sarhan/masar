@@ -1,5 +1,5 @@
 import { RequestHandler } from "express";
-import { PlatformAdmin } from "./platformAdmin.model";
+import { PlatformAdmin } from "./platform-admin.model";
 import { AppError } from "../../lib/errors";
 import { cookieNames, verifyAccessToken } from "../auth/tokens";
 

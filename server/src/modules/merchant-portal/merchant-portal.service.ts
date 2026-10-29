@@ -9,7 +9,7 @@ import { summaryReport } from "../reports/reports.service";
 import { tenantSettings } from "../tenants/tenants.service";
 import { notFound } from "../../lib/errors";
 import { scope } from "../../lib/scope";
-import { portalOrderBody } from "./merchantPortal.schemas";
+import { portalOrderBody } from "./merchant-portal.schema";
 
 const merchantId = (req: Request) => new mongoose.Types.ObjectId(req.user!.merchantId);
 const mine = (req: Request) => ({ merchant: merchantId(req) });

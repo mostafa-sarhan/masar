@@ -5,7 +5,7 @@ import { Order } from "../src/modules/orders/order.model";
 import { User } from "../src/modules/users/user.model";
 import { Courier } from "../src/modules/couriers/courier.model";
 import { Tenant } from "../src/modules/tenants/tenant.model";
-import { TenantScopeError } from "../src/lib/tenantPlugin";
+import { TenantScopeError } from "../src/lib/tenant-plugin";
 
 useDb();
 

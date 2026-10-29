@@ -1,5 +1,5 @@
 import { RequestHandler } from "express";
-import { AppError } from "../lib/errors";
+import { AppError } from "./errors";
 import { config } from "../config";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);

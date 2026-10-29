@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { ok } from "../../lib/respond";
-import { reportQuery, settlementBody } from "./reports.schemas";
+import { reportQuery, settlementBody } from "./reports.schema";
 import * as reports from "./reports.service";
 
 export async function summary(req: Request, res: Response) {

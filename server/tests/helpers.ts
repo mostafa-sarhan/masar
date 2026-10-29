@@ -7,11 +7,11 @@ import { User, Role } from "../src/modules/users/user.model";
 import { Tenant, TenantDoc } from "../src/modules/tenants/tenant.model";
 import { Courier } from "../src/modules/couriers/courier.model";
 import { Merchant } from "../src/modules/merchants/merchant.model";
-import { PlatformAdmin } from "../src/modules/platform/platformAdmin.model";
+import { PlatformAdmin } from "../src/modules/platform/platform-admin.model";
 import { hashPassword } from "../src/modules/auth/password";
-import { resetRateLimits } from "../src/lib/rateLimit";
+import { resetRateLimits } from "../src/lib/rate-limit";
 
-export { UNSCOPED } from "../src/lib/tenantPlugin";
+export { UNSCOPED } from "../src/lib/tenant-plugin";
 
 export const app = createApp();
 export const PASSWORD = "Str0ngPassw0rd";

@@ -3,7 +3,9 @@
 // merchant is the tenant setting `merchantDeductions` (default: company fee only).
 //   merchant net = delivered total − deducted commissions
 //   after courier = delivered total − courier commission (what the company keeps before paying itself)
-export type MerchantDeduction = "company" | "courier";
+import type { MerchantDeduction } from "@masar/shared";
+
+export type { MerchantDeduction };
 export const DEFAULT_MERCHANT_DEDUCTIONS: readonly MerchantDeduction[] = ["company"];
 
 export interface Commissions {

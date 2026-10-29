@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { ok } from "../../lib/respond";
 import { cookieNames } from "./tokens";
-import { loginBody, changePasswordBody } from "./auth.schemas";
+import { loginBody, changePasswordBody } from "./auth.schema";
 import * as auth from "./auth.service";
 
 const refreshCookie = (req: Request) => req.cookies?.[cookieNames("tenant").refresh];

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { ok, created } from "../../lib/respond";
 import { idParams } from "../../lib/validate";
-import { pagedListQuery, listQuerySchema, barcodeParams, createOrderSchema, updateOrderSchema, bulkAssignSchema, bulkStatusSchema } from "./orders.schemas";
+import { pagedListQuery, listQuerySchema, barcodeParams, createOrderSchema, updateOrderSchema, bulkAssignSchema, bulkStatusSchema } from "./orders.schema";
 import * as orders from "./orders.service";
 
 export async function list(req: Request, res: Response) {

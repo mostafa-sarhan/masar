@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import request from "supertest";
 import { app, useDb, loginAs, loginPlatform, seedRefs, orderInput, PASSWORD, UNSCOPED } from "./helpers";
 import { Order } from "../src/modules/orders/order.model";
-import { AuditEvent } from "../src/modules/audit/auditEvent.model";
-import { AccessRequest } from "../src/modules/platform/accessRequest.model";
+import { AuditEvent } from "../src/modules/audit/audit-event.model";
+import { AccessRequest } from "../src/modules/platform/access-request.model";
 import { User } from "../src/modules/users/user.model";
 
 useDb();
