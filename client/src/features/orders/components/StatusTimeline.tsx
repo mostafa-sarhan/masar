@@ -1,10 +1,11 @@
-import { statusLabel } from "./utils/orderStatus";
-import { displayTimezone } from "./utils/locale";
+import { statusLabel } from "@/lib/order-status";
+import type { StatusEvent } from "@/lib/types";
+import { displayTimezone } from "@/lib/locale";
 
-const when = (at) => new Date(at).toLocaleString("ar-EG", { timeZone: displayTimezone(), dateStyle: "medium", timeStyle: "short" });
+const when = (at: string) => new Date(at).toLocaleString("ar-EG", { timeZone: displayTimezone(), dateStyle: "medium", timeStyle: "short" });
 
 // Vertical status timeline. `showWho` adds who made each change (staff only).
-export default function StatusTimeline({ events = [], showWho = false }) {
+export default function StatusTimeline({ events = [], showWho = false }: { events?: StatusEvent[]; showWho?: boolean }) {
   if (!events.length) return <p className="opacity-70">لا يوجد سجل حالات</p>;
   return (
     <ol className="border-s-2 border-orange-400 ps-4 space-y-3 text-start">

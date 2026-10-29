@@ -1,19 +1,22 @@
+import type { OrderStatus } from "@masar/shared";
+import type { GroupedReportRow, ReportMeta } from "@/lib/types";
+import type { FeeValues } from "./FeeInputs";
 import { useEffect, useState } from "react";
-import { getMerchantReport } from "../services/resourcesApi";
-import { errorMessage } from "../services/errors";
-import FeeInputs from "../FeeInputs";
-import Money from "../Money";
-import { statusLabel } from "../utils/orderStatus";
+import { getMerchantReport } from "@/lib/resources-api";
+import { errorMessage } from "@/lib/errors";
+import FeeInputs from "./FeeInputs";
+import Money from "@/components/ui/Money";
+import { statusLabel } from "@/lib/order-status";
 
-const COUNT_COLUMNS = ["delivered", "returned", "refused", "pending", "exchanged", "with_courier"];
+const COUNT_COLUMNS: OrderStatus[] = ["delivered", "returned", "refused", "pending", "exchanged", "with_courier"];
 
 // Orders and money per merchant (server formula, fee snapshots).
 export default function MerchantReport() {
-  const [rows, setRows] = useState([]);
-  const [feeInput, setFeeInput] = useState({ courierFee: "", companyFee: "" });
-  const [fees, setFees] = useState(feeInput);
+  const [rows, setRows] = useState<GroupedReportRow<"merchant">[]>([]);
+  const [feeInput, setFeeInput] = useState<FeeValues>({ courierFee: "", companyFee: "" });
+  const [fees, setFees] = useState<FeeValues>(feeInput);
   const [range, setRange] = useState({ from: "", to: "" });
-  const [defaults, setDefaults] = useState(null);
+  const [defaults, setDefaults] = useState<ReportMeta["fees"] | null>(null);
 
   useEffect(() => {
     getMerchantReport({ archived: "all", ...range, ...fees })
@@ -45,7 +48,7 @@ export default function MerchantReport() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ merchant, total, byStatus, money }) => (
+            {rows.map(({ merchant, total, byStatus, money }) => merchant && (
               <tr key={merchant._id} className="border-b">
                 <td className="p-2 font-bold">{merchant.name}</td>
                 <td className="p-2">{total.count}</td>

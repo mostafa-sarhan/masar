@@ -1,10 +1,11 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // Fallback CSP for production builds (dev needs Vite's inline scripts). The host should
 // also send it, plus frame-ancestors and HSTS, as real response headers.
-function contentSecurityPolicy(apiUrl) {
+function contentSecurityPolicy(apiUrl: string): Plugin {
   const policy = [
     "default-src 'self'",
     "script-src 'self'",
@@ -19,7 +20,7 @@ function contentSecurityPolicy(apiUrl) {
   return {
     name: 'csp-meta',
     apply: 'build',
-    transformIndexHtml: () => [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: policy }, injectTo: 'head-prepend' }],
+    transformIndexHtml: () => [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: policy }, injectTo: 'head-prepend' as const }],
   }
 }
 
@@ -28,5 +29,12 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, 'VITE_')
   return {
     plugins: [react(), tailwindcss(), contentSecurityPolicy(env.VITE_API_URL || 'http://localhost:5000')],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+        // Use the shared package's TypeScript source directly (no build step for the client).
+        '@masar/shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),
+      },
+    },
   }
 })

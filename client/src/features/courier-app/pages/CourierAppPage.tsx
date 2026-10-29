@@ -1,11 +1,12 @@
+import type { CourierOrder, CourierToday } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
-import PortalLayout from "./PortalLayout";
-import Money from "./Money";
-import { getCourierOrders, getCourierToday, reportOutcome } from "./services/portalsApi";
-import { errorMessage } from "./services/errors";
-import { statusLabel } from "./utils/orderStatus";
+import PortalLayout from "@/app/layouts/PortalLayout";
+import Money from "@/components/ui/Money";
+import { getCourierOrders, getCourierToday, reportOutcome } from "@/lib/portals-api";
+import { errorMessage } from "@/lib/errors";
+import { statusLabel } from "@/lib/order-status";
 
-const OUTCOMES = [
+const OUTCOMES: { status: "delivered" | "returned" | "refused" | "exchanged"; className: string; needsReason?: boolean }[] = [
   { status: "delivered", className: "bg-green-600" },
   { status: "returned", className: "bg-yellow-600", needsReason: true },
   { status: "refused", className: "bg-red-600", needsReason: true },
@@ -14,9 +15,9 @@ const OUTCOMES = [
 
 // Mobile-first: the courier's open orders with call / map buttons and one-tap outcomes.
 export default function CourierApp() {
-  const [orders, setOrders] = useState(null);
-  const [today, setToday] = useState(null);
-  const [busy, setBusy] = useState(null);
+  const [orders, setOrders] = useState<CourierOrder[] | null>(null);
+  const [today, setToday] = useState<CourierToday | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(() => {
     Promise.all([getCourierOrders(), getCourierToday()])
@@ -31,7 +32,7 @@ export default function CourierApp() {
     load();
   }, [load]);
 
-  const act = async (order, outcome) => {
+  const act = async (order: CourierOrder, outcome: (typeof OUTCOMES)[number]) => {
     let reason;
     if (outcome.needsReason) {
       reason = window.prompt("السبب");

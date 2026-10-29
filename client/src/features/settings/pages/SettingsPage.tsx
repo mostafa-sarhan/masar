@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { getSettings, updateSettings } from "./services/resourcesApi";
-import { errorMessage } from "./services/errors";
-import { useAuth } from "./AuthContext";
+import type { MerchantDeduction } from "@masar/shared";
+import type { TenantSettings } from "@/lib/types";
+import { useEffect, useState, type FormEvent } from "react";
+import { getSettings, updateSettings } from "@/lib/resources-api";
+import { errorMessage } from "@/lib/errors";
+import { useAuth } from "@/app/auth-context";
 
 const CURRENCIES = ["EGP", "SAR", "AED", "KWD", "QAR", "BHD", "OMR", "JOD", "USD"];
 const TIMEZONES = Intl.supportedValuesOf ? Intl.supportedValuesOf("timeZone") : ["Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "UTC"];
@@ -11,7 +13,7 @@ const field = "border rounded p-2 text-black bg-white";
 // Company settings (owner/admin). Fee changes apply to orders delivered from now on.
 export default function Settings() {
   const { tenantChanged } = useAuth();
-  const [form, setForm] = useState(null);
+  const [form, setForm] = useState<TenantSettings | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -20,11 +22,11 @@ export default function Settings() {
 
   if (!form) return <div className="p-6">جاري التحميل...</div>;
 
-  const set = (patch) => setForm((f) => ({ ...f, ...patch }));
-  const toggleDeduction = (key) =>
+  const set = (patch: Partial<TenantSettings>) => setForm((f) => (f ? { ...f, ...patch } : f));
+  const toggleDeduction = (key: MerchantDeduction) =>
     set({ merchantDeductions: form.merchantDeductions.includes(key) ? form.merchantDeductions.filter((d) => d !== key) : [...form.merchantDeductions, key] });
 
-  const save = async (e) => {
+  const save = async (e: FormEvent) => {
     e.preventDefault();
     try {
       setSaving(true);
@@ -55,8 +57,8 @@ export default function Settings() {
         <h3 className="text-xl font-bold">العمولات (لكل أوردر مسلّم)</h3>
         <p className="text-sm text-gray-300">التغيير يطبق على الأوردرات التي تُسلّم بعد الحفظ فقط؛ الأوردرات المسلّمة تحتفظ بعمولتها.</p>
         <div className="flex gap-4 flex-wrap items-center">
-          <label>عمولة المندوب <input type="number" min="0" step="0.01" className={field} value={form.fees.courier} onChange={(e) => set({ fees: { ...form.fees, courier: e.target.value } })} /></label>
-          <label>عمولة الشركة <input type="number" min="0" step="0.01" className={field} value={form.fees.company} onChange={(e) => set({ fees: { ...form.fees, company: e.target.value } })} /></label>
+          <label>عمولة المندوب <input type="number" min="0" step="0.01" className={field} value={form.fees.courier} onChange={(e) => set({ fees: { ...form.fees, courier: Number(e.target.value) } })} /></label>
+          <label>عمولة الشركة <input type="number" min="0" step="0.01" className={field} value={form.fees.company} onChange={(e) => set({ fees: { ...form.fees, company: Number(e.target.value) } })} /></label>
         </div>
         <div className="flex gap-6 flex-wrap">
           <span>يُخصم من التاجر:</span>
@@ -68,7 +70,7 @@ export default function Settings() {
       <section className="space-y-2">
         <h3 className="text-xl font-bold">عام</h3>
         <div className="flex gap-4 flex-wrap items-center">
-          <label>الأرشفة بعد (أيام) <input type="number" min="1" max="365" className={field} value={form.archiveAfterDays} onChange={(e) => set({ archiveAfterDays: e.target.value })} /></label>
+          <label>الأرشفة بعد (أيام) <input type="number" min="1" max="365" className={field} value={form.archiveAfterDays} onChange={(e) => set({ archiveAfterDays: Number(e.target.value) })} /></label>
           <label>
             المنطقة الزمنية{" "}
             <select className={field} value={form.timezone} onChange={(e) => set({ timezone: e.target.value })}>

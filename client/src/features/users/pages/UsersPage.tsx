@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { getUsers, getAuditLogs, createUser, changePassword, changeRole } from "./services/resourcesApi";
-import { errorMessage } from "./services/errors";
-import { formatDate } from "./utils/dataUtils";
-import Pagination from "./Pagination";
-import { ROLE_LABELS } from "./utils/roles";
-import { useAuth } from "./AuthContext";
-import { PASSWORD_HINT } from "./ChangePasswordForm";
+import type { Role } from "@masar/shared";
+import type { UserRow, AuditEventRow } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { getUsers, getAuditLogs, createUser, changePassword, changeRole } from "@/lib/resources-api";
+import { errorMessage } from "@/lib/errors";
+import { formatDate } from "@/lib/format-date";
+import Pagination from "@/components/ui/Pagination";
+import { ROLE_LABELS } from "@/lib/roles";
+import { useAuth } from "@/app/auth-context";
+import { PASSWORD_HINT } from "@/features/auth/components/ChangePasswordForm";
 
-const ACTION_LABELS = {
+const ACTION_LABELS: Record<string, string> = {
   CREATE_USER: "إضافة موظف",
   CHANGE_PASSWORD: "تغيير باسورد",
   CHANGE_ROLE: "تغيير الدور",
@@ -20,9 +22,9 @@ const ACTION_LABELS = {
   ROTATE_API_KEY: "تغيير مفتاح API",
   REVOKE_API_KEY: "إلغاء مفتاح API",
 };
-const ENTITY_LABELS = { user: "موظف", order: "شحنة", merchant: "تاجر", courier: "مندوب" };
+const ENTITY_LABELS: Record<string, string> = { user: "موظف", order: "شحنة", merchant: "تاجر", courier: "مندوب" };
 
-const describeChanges = (changes) =>
+const describeChanges = (changes: AuditEventRow["changes"]) =>
   Object.entries(changes || {})
     .filter(([field]) => field !== "order")
     .map(([field, { from, to }]) => `${field}: ${from ?? "-"} ← ${to ?? "-"}`)
@@ -30,7 +32,7 @@ const describeChanges = (changes) =>
 
 export default function Employee() {
   const { user } = useAuth();
-  const [employees, setEmployees] = useState([]);
+  const [employees, setEmployees] = useState<UserRow[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -38,9 +40,9 @@ export default function Employee() {
   const [newPassword, setNewPassword] = useState("");
 
   const [roleId, setRoleId] = useState("");
-  const [newRole, setNewRole] = useState("employee");
+  const [newRole, setNewRole] = useState<Role>("employee");
 
-  const [logs, setLogs] = useState({ items: [], page: 1, pages: 0 });
+  const [logs, setLogs] = useState<{ items: AuditEventRow[]; page: number; pages: number }>({ items: [], page: 1, pages: 0 });
   const [logPage, setLogPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey((k) => k + 1);
@@ -55,7 +57,7 @@ export default function Employee() {
       .catch((err) => console.error(err));
   }, [logPage, reloadKey]);
 
-  const run = async (action, success) => {
+  const run = async (action: () => Promise<unknown>, success: string) => {
     try {
       await action();
       alert(success);
@@ -88,7 +90,7 @@ export default function Employee() {
     if (await run(() => changeRole(roleId, newRole), "تم تغيير الدور ✅")) setRoleId("");
   };
 
-  const employeeSelect = (value, onChange) => (
+  const employeeSelect = (value: string, onChange: (id: string) => void) => (
     <select value={value} onChange={(e) => onChange(e.target.value)} className="border p-2 rounded">
       <option value="">اختر موظف</option>
       {employees.map((e) => (
@@ -145,7 +147,7 @@ export default function Employee() {
         <h2 className="text-xl font-bold mb-3">🛡️ تغيير الدور</h2>
         <div className="flex gap-3 flex-wrap">
           {employeeSelect(roleId, setRoleId)}
-          <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className="border p-2 rounded">
+          <select value={newRole} onChange={(e) => setNewRole(e.target.value as Role)} className="border p-2 rounded">
             <option value="employee">موظف</option>
             <option value="admin">أدمين</option>
             {user?.role === "owner" && <option value="owner">مالك</option>}

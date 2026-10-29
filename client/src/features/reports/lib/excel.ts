@@ -1,6 +1,19 @@
 // Builds and downloads `<fileName>_<timestamp>.xlsx`: a summary block on top, then the data table.
 // exceljs is loaded on demand to keep it out of the main bundle.
-export async function downloadReport({ fileName, sheetName, summary, columns, rows }) {
+export interface ReportColumn<T> {
+  header: string;
+  value(row: T): unknown;
+}
+
+interface ReportFile<T> {
+  fileName: string;
+  sheetName: string;
+  summary: unknown[][];
+  columns: ReportColumn<T>[];
+  rows: T[];
+}
+
+export async function downloadReport<T>({ fileName, sheetName, summary, columns, rows }: ReportFile<T>) {
   const { default: ExcelJS } = await import("exceljs");
 
   const workbook = new ExcelJS.Workbook();

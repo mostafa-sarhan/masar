@@ -1,10 +1,12 @@
+import type { ReactNode } from "react";
 import Barcode from "./Barcode";
-import { formatDate } from "./utils/dataUtils";
-import { statusLabel } from "./utils/orderStatus";
+import type { Order } from "@/lib/types";
+import { formatDate } from "@/lib/format-date";
+import { statusLabel } from "@/lib/order-status";
 
 // Header + row for the shared 10-column orders grid.
 // `selection` (optional): { all, onToggleAll } adds a select-all checkbox to the first column.
-export function OrdersHeader({ lastColumn = "ملاحظه", selection }) {
+export function OrdersHeader({ lastColumn = "ملاحظه", selection }: { lastColumn?: string; selection?: { all: boolean; onToggleAll(): void } }) {
   const columns = ["التاريخ", "الباركود", "العنوان", "المرسل إليه", "الحالة", "الشركة", "المندوب", "المبلغ", lastColumn];
   return (
     <div className="orders-grid border-2 rounded-lg font-bold">
@@ -19,7 +21,16 @@ export function OrdersHeader({ lastColumn = "ملاحظه", selection }) {
   );
 }
 
-export function OrderRow({ order, index, status, actions, selected, onToggle }) {
+interface OrderRowProps {
+  order: Order;
+  index: number;
+  status?: ReactNode;
+  actions?: ReactNode;
+  selected?: boolean;
+  onToggle?(): void;
+}
+
+export function OrderRow({ order, index, status, actions, selected, onToggle }: OrderRowProps) {
   return (
     <div className={`orders-grid border-x-2 border-t-2 ${selected ? "bg-white/10" : ""}`}>
       <div className="orders-cell gap-1">

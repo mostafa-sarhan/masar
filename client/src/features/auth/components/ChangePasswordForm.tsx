@@ -1,16 +1,23 @@
-import { useState } from "react";
-import { errorMessage } from "./services/errors";
+import { useState, type FormEvent } from "react";
+import { errorMessage } from "@/lib/errors";
 
 export const PASSWORD_HINT = "10 أحرف على الأقل، حروف وأرقام";
 
 // Shared by the tenant app and the platform console. onSubmit(current, next) returns the new user/admin.
-export default function ChangePasswordForm({ title, note, onSubmit, onDone }) {
+interface ChangePasswordFormProps<T> {
+  title: string;
+  note?: string;
+  onSubmit(current: string, next: string): Promise<T>;
+  onDone(result: T): void;
+}
+
+export default function ChangePasswordForm<T>({ title, note, onSubmit, onDone }: ChangePasswordFormProps<T>) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
 
-  const submit = async (e) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     if (next !== confirm) return setError("الباسورد الجديد غير متطابق");
@@ -21,7 +28,7 @@ export default function ChangePasswordForm({ title, note, onSubmit, onDone }) {
     }
   };
 
-  const input = (placeholder, value, set) => (
+  const input = (placeholder: string, value: string, set: (v: string) => void) => (
     <input type="password" placeholder={placeholder} className="border p-1 rounded-lg my-2 w-[300px]" value={value} onChange={(e) => set(e.target.value)} required />
   );
 

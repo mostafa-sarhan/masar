@@ -1,25 +1,27 @@
-import { useEffect, useState } from "react";
-import PortalLayout from "./PortalLayout";
-import Money from "./Money";
-import Pagination from "./Pagination";
-import { getPortalOrders, createPortalOrder, getPortalStatement, getPortalApiKey, rotatePortalApiKey, getPortalOrder } from "./services/portalsApi";
-import { trackingUrl } from "./services/ordersApi";
-import StatusTimeline from "./StatusTimeline";
-import { errorMessage } from "./services/errors";
-import { formatDate } from "./utils/dataUtils";
-import { ORDER_STATUSES, statusLabel } from "./utils/orderStatus";
-import { convertArabicNumbersToEnglish } from "./utils/numberUtils";
+import type { ChangeEvent } from "react";
+import type { PortalOrder, PortalStatement } from "@/lib/types";
+import { useEffect, useState, type FormEvent } from "react";
+import PortalLayout from "@/app/layouts/PortalLayout";
+import Money from "@/components/ui/Money";
+import Pagination from "@/components/ui/Pagination";
+import { getPortalOrders, createPortalOrder, getPortalStatement, getPortalApiKey, rotatePortalApiKey, getPortalOrder } from "@/lib/portals-api";
+import { trackingUrl } from "@/features/orders/api/orders-api";
+import StatusTimeline from "@/features/orders/components/StatusTimeline";
+import { errorMessage } from "@/lib/errors";
+import { formatDate } from "@/lib/format-date";
+import { ORDER_STATUSES, statusLabel } from "@/lib/order-status";
+import { toLatinDigits } from "@/lib/digits";
 
 const TABS = { orders: "طلباتي", create: "طلب جديد", statement: "كشف الحساب", api: "ربط API" };
 const field = "border rounded p-2 text-black bg-white";
 
 export default function MerchantPortal() {
-  const [tab, setTab] = useState("orders");
+  const [tab, setTab] = useState<keyof typeof TABS>("orders");
   return (
     <PortalLayout title="بوابة التاجر">
       <nav className="flex gap-2 mb-4 flex-wrap">
         {Object.entries(TABS).map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} className={`px-4 py-2 rounded ${tab === key ? "bg-orange" : "bg-edit"}`}>{label}</button>
+          <button key={key} onClick={() => setTab(key as keyof typeof TABS)} className={`px-4 py-2 rounded ${tab === key ? "bg-orange" : "bg-edit"}`}>{label}</button>
         ))}
       </nav>
       {tab === "orders" && <OrdersTab />}
@@ -33,8 +35,8 @@ export default function MerchantPortal() {
 function OrdersTab() {
   const [filters, setFilters] = useState({ status: "", search: "" });
   const [page, setPage] = useState(1);
-  const [result, setResult] = useState({ items: [], pages: 0, total: 0 });
-  const [details, setDetails] = useState(null);
+  const [result, setResult] = useState<{ items: PortalOrder[]; pages: number; total: number }>({ items: [], pages: 0, total: 0 });
+  const [details, setDetails] = useState<PortalOrder | null>(null);
 
   useEffect(() => {
     getPortalOrders({ ...filters, page, limit: 20 })
@@ -42,8 +44,8 @@ function OrdersTab() {
       .catch((err) => alert(errorMessage(err)));
   }, [filters, page]);
 
-  const setFilter = (name) => (e) => {
-    setFilters((f) => ({ ...f, [name]: name === "search" ? convertArabicNumbersToEnglish(e.target.value).replace(/[^\d]/g, "") : e.target.value }));
+  const setFilter = (name: "status" | "search") => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFilters((f) => ({ ...f, [name]: name === "search" ? toLatinDigits(e.target.value).replace(/[^\d]/g, "") : e.target.value }));
     setPage(1);
   };
 
@@ -93,12 +95,12 @@ function OrdersTab() {
   );
 }
 
-function CreateTab({ onCreated }) {
+function CreateTab({ onCreated }: { onCreated(): void }) {
   const empty = { fullName: "", phone: "", address: "", cost: "", description: "" };
   const [form, setForm] = useState(empty);
-  const set = (name, transform = (v) => v) => (e) => setForm((f) => ({ ...f, [name]: transform(e.target.value) }));
+  const set = (name: keyof typeof empty, transform: (v: string) => string = (v) => v) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [name]: transform(e.target.value) }));
 
-  const submit = async (e) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
       const order = await createPortalOrder({ ...form, cost: Number(form.cost), description: form.description || undefined });
@@ -113,9 +115,9 @@ function CreateTab({ onCreated }) {
   return (
     <form onSubmit={submit} className="grid gap-3 max-w-md">
       <input required placeholder="اسم العميل" value={form.fullName} onChange={set("fullName")} className={field} />
-      <input required placeholder="رقم الهاتف" value={form.phone} onChange={set("phone", convertArabicNumbersToEnglish)} className={field} dir="ltr" />
+      <input required placeholder="رقم الهاتف" value={form.phone} onChange={set("phone", toLatinDigits)} className={field} dir="ltr" />
       <input required placeholder="العنوان" value={form.address} onChange={set("address")} className={field} />
-      <input required placeholder="المبلغ" value={form.cost} onChange={set("cost", convertArabicNumbersToEnglish)} className={field} dir="ltr" />
+      <input required placeholder="المبلغ" value={form.cost} onChange={set("cost", toLatinDigits)} className={field} dir="ltr" />
       <textarea placeholder="ملاحظات" value={form.description} onChange={set("description")} className={field} />
       <button className="bg-blue-600 py-2 rounded">إنشاء</button>
     </form>
@@ -124,7 +126,7 @@ function CreateTab({ onCreated }) {
 
 function StatementTab() {
   const [range, setRange] = useState({ from: "", to: "" });
-  const [s, setS] = useState(null);
+  const [s, setS] = useState<PortalStatement | null>(null);
 
   useEffect(() => {
     getPortalStatement(range).then(setS).catch((err) => alert(errorMessage(err)));
@@ -152,8 +154,8 @@ function StatementTab() {
 }
 
 function ApiTab() {
-  const [info, setInfo] = useState(null);
-  const [newKey, setNewKey] = useState(null);
+  const [info, setInfo] = useState<Awaited<ReturnType<typeof getPortalApiKey>> | null>(null);
+  const [newKey, setNewKey] = useState<string | null>(null);
 
   useEffect(() => {
     getPortalApiKey().then(setInfo).catch((err) => alert(errorMessage(err)));

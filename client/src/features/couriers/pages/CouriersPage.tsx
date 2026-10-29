@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
-import { getCouriers, createCourier } from "./services/resourcesApi";
-import { createCourierAccount } from "./services/portalsApi";
-import { errorMessage } from "./services/errors";
-import { promptAccount } from "./utils/promptAccount";
+import { useEffect, useState, type FormEvent } from "react";
+import { getCouriers, createCourier } from "@/lib/resources-api";
+import type { Courier } from "@/lib/types";
+import { createCourierAccount } from "@/lib/portals-api";
+import { errorMessage } from "@/lib/errors";
+import { promptAccount } from "@/lib/prompt-account";
 
 // Courier records and their mobile-app logins (admins). Reports are under Reports > Couriers.
 export default function Couriers() {
-  const [couriers, setCouriers] = useState([]);
+  const [couriers, setCouriers] = useState<Courier[]>([]);
   const [name, setName] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey((k) => k + 1);
@@ -15,7 +16,7 @@ export default function Couriers() {
     getCouriers().then(setCouriers).catch((err) => alert(errorMessage(err)));
   }, [reloadKey]);
 
-  const add = async (e) => {
+  const add = async (e: FormEvent) => {
     e.preventDefault();
     try {
       await createCourier(name.trim());

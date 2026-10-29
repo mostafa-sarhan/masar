@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
-import { getCouriers } from "./services/resourcesApi";
+import { getCouriers } from "@/lib/resources-api";
+import type { Courier } from "@/lib/types";
+
+interface CourierSelectProps {
+  value: string;
+  onChange(id: string): void;
+  onLoaded?(couriers: Courier[]): void;
+  placeholder?: string;
+  className?: string;
+}
 
 // Courier dropdown; value is the courier id. onLoaded receives the list (for names).
-export default function CourierSelect({ value, onChange, onLoaded, placeholder = "-- اختر المندوب --", className = "border-2 rounded-lg px-3 py-2 max-w-full" }) {
-  const [couriers, setCouriers] = useState([]);
+export default function CourierSelect({ value, onChange, onLoaded, placeholder = "-- اختر المندوب --", className = "border-2 rounded-lg px-3 py-2 max-w-full" }: CourierSelectProps) {
+  const [couriers, setCouriers] = useState<Courier[]>([]);
 
   useEffect(() => {
     getCouriers()

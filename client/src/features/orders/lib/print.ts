@@ -1,12 +1,16 @@
+import type { Order } from "@/lib/types";
 import JsBarcode from "jsbarcode";
-import { escapeHtml as esc } from "./html";
-import { formatDate } from "./dataUtils";
-import { statusLabel } from "./orderStatus";
-import { formatMoney } from "./locale";
-import { trackingUrl } from "../services/ordersApi";
+import { escapeHtml as esc } from "@/lib/html";
+import { formatDate } from "@/lib/format-date";
+import { statusLabel } from "@/lib/order-status";
+import { formatMoney } from "@/lib/locale";
+import { trackingUrl } from "@/features/orders/api/orders-api";
 
 // Barcode as an SVG string, rendered in the main document so the print window needs no scripts.
-function barcodeSvg(value) {
+// Printed orders: full staff orders or the courier sheet subset.
+type Printable = Pick<Order, "barcode" | "fullName" | "address" | "phone" | "cost" | "createdAt"> & Partial<Pick<Order, "trackingId" | "merchant" | "status">>;
+
+function barcodeSvg(value: string) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   JsBarcode(svg, String(value), { format: "code128", width: 2, height: 30, fontSize: 10, displayValue: true });
   return svg.outerHTML;
@@ -23,7 +27,7 @@ const BASE_CSS = `
 `;
 
 // Opens one print window, prints, and closes it after printing.
-function printDocument(title, body) {
+function printDocument(title: string, body: string) {
   const win = window.open("", "_blank", "width=900,height=700");
   if (!win) return;
   win.document.write(
@@ -35,7 +39,7 @@ function printDocument(title, body) {
   win.print();
 }
 
-const labelHtml = (o) => `
+const labelHtml = (o: Printable) => `
   <div class="label">
     ${barcodeSvg(o.barcode)}
     <p><strong>الاسم:</strong> ${esc(o.fullName)}</p>
@@ -45,13 +49,13 @@ const labelHtml = (o) => `
     ${o.trackingId ? `<p style="font-size:10px"><strong>تتبع:</strong> <span dir="ltr">${esc(o.trackingId)}</span><br><span dir="ltr">${esc(trackingUrl(o.trackingId))}</span></p>` : ""}
   </div>`;
 
-export const printLabel = (order) => printDocument("ملصق شحنة", labelHtml(order));
-export const printLabels = (orders) => printDocument("ملصقات الشحنات", orders.map(labelHtml).join(""));
+export const printLabel = (order: Printable) => printDocument("ملصق شحنة", labelHtml(order));
+export const printLabels = (orders: Printable[]) => printDocument("ملصقات الشحنات", orders.map(labelHtml).join(""));
 
-const total = (orders) => orders.reduce((sum, o) => sum + (Number(o.cost) || 0), 0);
+const total = (orders: Printable[]) => orders.reduce((sum, o) => sum + (Number(o.cost) || 0), 0);
 
 // Courier hand-over sheet with barcodes.
-export function printCourierSheet(orders, courierName) {
+export function printCourierSheet(orders: Printable[], courierName: string) {
   const rows = orders
     .map(
       (o) => `<tr>
@@ -69,13 +73,13 @@ export function printCourierSheet(orders, courierName) {
   );
 }
 
-export function printOrdersTable(orders) {
+export function printOrdersTable(orders: Printable[]) {
   const rows = orders
     .map(
       (o) => `<tr>
         <td>${esc(formatDate(o.createdAt))}</td><td>${esc(o.barcode)}</td><td>${esc(o.address)}</td>
         <td>${esc(o.fullName)} - ${esc(o.phone)}</td><td>${esc(o.merchant?.name ?? "-")}</td>
-        <td>${esc(statusLabel(o.status))}</td><td>${esc(o.cost)}</td>
+        <td>${esc(o.status ? statusLabel(o.status) : "")}</td><td>${esc(o.cost)}</td>
       </tr>`
     )
     .join("");

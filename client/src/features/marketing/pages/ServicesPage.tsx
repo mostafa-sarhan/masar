@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 
 export default function Services() {
@@ -87,7 +86,7 @@ export default function Services() {
             أضف شحنتك الآن واستمتع بتجربة شحن احترافية
           </p>
           <div className="bg-white text-orange-500 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition">
-            <Link to="/neworder">اضافة شحنه جديده </Link>
+            <Link to="/orders/new">اضافة شحنه جديده </Link>
           </div>
         </div>
 

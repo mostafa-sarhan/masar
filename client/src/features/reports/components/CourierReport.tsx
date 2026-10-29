@@ -1,19 +1,22 @@
+import type { OrderStatus } from "@masar/shared";
+import type { GroupedReportRow, ReportMeta } from "@/lib/types";
+import type { FeeValues } from "./FeeInputs";
 import { useEffect, useState } from "react";
-import { getCourierReport } from "../services/resourcesApi";
-import { errorMessage } from "../services/errors";
-import FeeInputs from "../FeeInputs";
-import Money from "../Money";
-import { statusLabel } from "../utils/orderStatus";
+import { getCourierReport } from "@/lib/resources-api";
+import { errorMessage } from "@/lib/errors";
+import FeeInputs from "./FeeInputs";
+import Money from "@/components/ui/Money";
+import { statusLabel } from "@/lib/order-status";
 
-const COLUMNS = ["delivered", "returned", "refused", "pending", "with_courier"];
+const COLUMNS: OrderStatus[] = ["delivered", "returned", "refused", "pending", "with_courier"];
 
 // Results and commission per courier (the courier fee is internal: shown here only).
 export default function CourierReport() {
-  const [rows, setRows] = useState([]);
-  const [feeInput, setFeeInput] = useState({ courierFee: "", companyFee: "" });
-  const [fees, setFees] = useState(feeInput);
+  const [rows, setRows] = useState<GroupedReportRow<"courier">[]>([]);
+  const [feeInput, setFeeInput] = useState<FeeValues>({ courierFee: "", companyFee: "" });
+  const [fees, setFees] = useState<FeeValues>(feeInput);
   const [range, setRange] = useState({ from: "", to: "" });
-  const [defaults, setDefaults] = useState(null);
+  const [defaults, setDefaults] = useState<ReportMeta["fees"] | null>(null);
 
   useEffect(() => {
     getCourierReport({ archived: "all", ...range, ...fees })
@@ -42,7 +45,7 @@ export default function CourierReport() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {rows.map((r) => r.courier && (
               <tr key={r.courier._id}>
                 <td className="border p-2">{r.courier.name}</td>
                 {COLUMNS.map((s) => <td key={s} className="border p-2">{r.byStatus[s]?.count ?? 0}</td>)}

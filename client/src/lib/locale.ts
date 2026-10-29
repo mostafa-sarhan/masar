@@ -1,15 +1,15 @@
-// Tenant display preferences (timezone, currency), set once after login by AuthContext.
+// Tenant display preferences (timezone, currency), set once after login by AuthProvider.
 const prefs = { timezone: "Africa/Cairo", currency: "EGP" };
 
-export function setDisplayPrefs({ timezone, currency } = {}) {
+export function setDisplayPrefs({ timezone, currency }: { timezone?: string; currency?: string } = {}) {
   if (timezone) prefs.timezone = timezone;
   if (currency) prefs.currency = currency;
 }
 
 export const displayTimezone = () => prefs.timezone;
 
-// 1234.5 -> "١٬٢٣٤٫٥٠ ج.م." style, in the tenant's currency.
-export function formatMoney(value) {
+// Amount in the tenant's currency, Arabic locale.
+export function formatMoney(value: number | string | null | undefined) {
   const n = Number(value) || 0;
   try {
     return new Intl.NumberFormat("ar-EG", { style: "currency", currency: prefs.currency, maximumFractionDigits: 2 }).format(n);

@@ -1,13 +1,18 @@
-import Money from "./Money";
-import React, { useState } from "react";
-import CourierSelect from "./CourierSelect";
-import { OrdersHeader, OrderRow } from "./OrderRow";
-import { getOrders, bulkStatus } from "./services/ordersApi";
-import { getSettlement } from "./services/resourcesApi";
-import { errorMessage } from "./services/errors";
-import { useAuth } from "./AuthContext";
-import { isAdmin as isAdminRole } from "./utils/roles";
-import { nextStatuses, statusLabel } from "./utils/orderStatus";
+import type { OrderStatus } from "@masar/shared";
+import type { Order, Courier, Summary, ReportMeta } from "@/lib/types";
+
+// An open order plus the outcome chosen on this page (saved together).
+type BatchOrder = Order & { nextStatus?: OrderStatus };
+import Money from "@/components/ui/Money";
+import { useState } from "react";
+import CourierSelect from "@/features/couriers/components/CourierSelect";
+import { OrdersHeader, OrderRow } from "@/features/orders/components/OrderRow";
+import { getOrders, bulkStatus } from "@/features/orders/api/orders-api";
+import { getSettlement } from "@/lib/resources-api";
+import { errorMessage } from "@/lib/errors";
+import { useAuth } from "@/app/auth-context";
+import { isAdmin as isAdminRole } from "@/lib/roles";
+import { nextStatuses, statusLabel } from "@/lib/order-status";
 
 const MAX_ORDERS = 100;
 
@@ -17,22 +22,22 @@ export default function Alldelivery() {
   const isAdmin = isAdminRole(user?.role);
 
   const [courier, setCourier] = useState("");
-  const [couriers, setCouriers] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [couriers, setCouriers] = useState<Courier[]>([]);
+  const [orders, setOrders] = useState<BatchOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [courierFee, setCourierFee] = useState("");
-  const [settlement, setSettlement] = useState(null);
+  const [settlement, setSettlement] = useState<(Summary & { fees: ReportMeta["fees"] }) | null>(null);
 
   const courierName = couriers.find((c) => c._id === courier)?.name;
 
-  const loadSettlement = async (list, fee = courierFee) => {
+  const loadSettlement = async (list: BatchOrder[], fee = courierFee) => {
     if (!list.length) return setSettlement(null);
     const { data, meta } = await getSettlement(list.map((o) => o._id), isAdmin && fee !== "" ? { courierFee: Number(fee) } : {});
     setSettlement({ ...data, fees: meta.fees });
   };
 
-  const loadOrders = async (courierId) => {
+  const loadOrders = async (courierId: string) => {
     setOrders([]);
     setSettlement(null);
     if (!courierId) return;
@@ -49,12 +54,12 @@ export default function Alldelivery() {
     }
   };
 
-  const handleSelectCourier = (courierId) => {
+  const handleSelectCourier = (courierId: string) => {
     setCourier(courierId);
     loadOrders(courierId);
   };
 
-  const handleStatusChange = (orderId, status) =>
+  const handleStatusChange = (orderId: string, status: OrderStatus) =>
     setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, nextStatus: status } : o)));
 
   // Rows the user didn't touch count as delivered (the courier's default outcome).
@@ -69,7 +74,7 @@ export default function Alldelivery() {
       setLoading(true);
       await bulkStatus(updates);
       const byId = new Map(updates.map((u) => [u.id, u.status]));
-      const saved = orders.map((o) => (byId.has(o._id) ? { ...o, status: byId.get(o._id), nextStatus: undefined } : o));
+      const saved: BatchOrder[] = orders.map((o) => (byId.has(o._id) ? { ...o, status: byId.get(o._id)!, nextStatus: undefined } : o));
       setOrders(saved);
       await loadSettlement(saved);
       alert("تم حفظ التعديلات بنجاح ✅");
@@ -80,8 +85,7 @@ export default function Alldelivery() {
     }
   };
 
-  const money = settlement?.money;
-  const notDelivered = settlement ? settlement.total.amount - money.deliveredTotal : 0;
+  const notDelivered = settlement ? settlement.total.amount - settlement.money.deliveredTotal : 0;
 
   return (
     <div className="w-[98%] m-auto mt-4">
@@ -93,7 +97,7 @@ export default function Alldelivery() {
             <input
               type="number"
               min="0"
-              placeholder={settlement?.fees.courier ?? ""}
+              placeholder={String(settlement?.fees.courier ?? "")}
               value={courierFee}
               onChange={(e) => setCourierFee(e.target.value)}
               onBlur={() => loadSettlement(orders).catch((err) => alert(errorMessage(err)))}
@@ -114,9 +118,9 @@ export default function Alldelivery() {
           </div>
           <div className="text-sm w-[50%]">
             <div>إجمالي المبلغ: <span className="font-bold mr-2"><Money value={settlement.total.amount} /></span></div>
-            <div>المبلغ المستحق للمندوب: <span className="font-bold mr-2"><Money value={money.courierCommission} /></span></div>
+            <div>المبلغ المستحق للمندوب: <span className="font-bold mr-2"><Money value={settlement.money.courierCommission} /></span></div>
             <div>اجمالى المبلغ غير المسلّم: <span className="font-bold mr-2"><Money value={notDelivered} /></span></div>
-            <div>الباقي بعد خصم المستحق: <span className="font-bold mr-2"><Money value={money.afterCourier} /></span></div>
+            <div>الباقي بعد خصم المستحق: <span className="font-bold mr-2"><Money value={settlement.money.afterCourier} /></span></div>
           </div>
         </div>
       )}
@@ -131,7 +135,7 @@ export default function Alldelivery() {
                 index={index + 1}
                 status={
                   order.status === "with_courier" ? (
-                    <select value={order.nextStatus || "with_courier"} onChange={(e) => handleStatusChange(order._id, e.target.value)} className="border px-2 py-1 rounded">
+                    <select value={order.nextStatus || "with_courier"} onChange={(e) => handleStatusChange(order._id, e.target.value as OrderStatus)} className="border px-2 py-1 rounded">
                       {["with_courier", ...nextStatuses("with_courier", user?.role)].map((s) => (
                         <option key={s} value={s}>{statusLabel(s)}</option>
                       ))}

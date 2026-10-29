@@ -1,17 +1,19 @@
+import type { ImportCheck } from "@/lib/types";
+import { ApiError } from "@/lib/api-client";
 import { useState } from "react";
-import { importOrders, downloadImportTemplate } from "./services/ordersApi";
-import { errorMessage } from "./services/errors";
-import Money from "./Money";
+import { importOrders, downloadImportTemplate } from "@/features/orders/api/orders-api";
+import { errorMessage } from "@/lib/errors";
+import Money from "@/components/ui/Money";
 
-const FIELD_LABELS = { fullName: "الاسم", phone: "الهاتف", address: "العنوان", cost: "المبلغ", merchant: "الشركة", description: "ملاحظات", reference: "المرجع" };
+const FIELD_LABELS: Record<string, string> = { fullName: "الاسم", phone: "الهاتف", address: "العنوان", cost: "المبلغ", merchant: "الشركة", description: "ملاحظات", reference: "المرجع" };
 
 // Upload .xlsx -> dry run (errors per row) -> import (all-or-nothing).
 export default function ImportOrders() {
-  const [file, setFile] = useState(null);
-  const [check, setCheck] = useState(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [check, setCheck] = useState<ImportCheck | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const run = async (mode) => {
+  const run = async (mode: "dry-run" | "commit") => {
     if (!file) return;
     try {
       setBusy(true);
@@ -23,7 +25,7 @@ export default function ImportOrders() {
         setCheck(null);
       }
     } catch (err) {
-      if (err.code === "IMPORT_INVALID") setCheck({ ...err.details, validRows: 0 });
+      if (err instanceof ApiError && err.code === "IMPORT_INVALID") setCheck({ ...(err.details as ImportCheck), validRows: 0 });
       alert(errorMessage(err));
     } finally {
       setBusy(false);
@@ -41,7 +43,7 @@ export default function ImportOrders() {
           type="file"
           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           onChange={(e) => {
-            setFile(e.target.files[0] ?? null);
+            setFile(e.target.files?.[0] ?? null);
             setCheck(null);
           }}
         />
@@ -68,11 +70,11 @@ export default function ImportOrders() {
               </tbody>
             </table>
           )}
-          {check.preview?.length > 0 && (
+          {!!check.preview?.length && (
             <table className="w-full text-sm border text-center">
               <thead className="bg-gray-800"><tr>{["الصف", "الاسم", "الهاتف", "العنوان", "المبلغ", "الشركة"].map((h) => <th key={h} className="p-2 border">{h}</th>)}</tr></thead>
               <tbody>
-                {check.preview.map((r) => (
+                {check.preview!.map((r) => (
                   <tr key={r.row}><td className="p-2 border">{r.row}</td><td className="p-2 border">{r.fullName}</td><td className="p-2 border" dir="ltr">{r.phone}</td><td className="p-2 border">{r.address}</td><td className="p-2 border"><Money value={r.cost} /></td><td className="p-2 border">{r.merchant}</td></tr>
                 ))}
               </tbody>

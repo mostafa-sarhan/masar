@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "./AuthContext";
-import { errorMessage } from "./services/errors";
-import { homeFor } from "./utils/roles";
+import { useAuth } from "@/app/auth-context";
+import { errorMessage } from "@/lib/errors";
+import { homeFor } from "@/lib/roles";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -11,7 +11,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { login, sessionError } = useAuth();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(""); // reset error
 

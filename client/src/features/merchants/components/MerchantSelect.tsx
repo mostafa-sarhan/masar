@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
-import { getMerchantOptions } from "./services/resourcesApi";
+import { getMerchantOptions } from "@/lib/resources-api";
 
 // Merchant (company) dropdown; value is the merchant id.
-export default function MerchantSelect({ value, onChange, placeholder = "اختر الشركة", className = "border rounded-lg p-2", required }) {
-  const [merchants, setMerchants] = useState([]);
+interface MerchantSelectProps {
+  value: string;
+  onChange(id: string): void;
+  placeholder?: string;
+  className?: string;
+  required?: boolean;
+}
+
+export default function MerchantSelect({ value, onChange, placeholder = "اختر الشركة", className = "border rounded-lg p-2", required }: MerchantSelectProps) {
+  const [merchants, setMerchants] = useState<{ _id: string; name: string }[]>([]);
 
   useEffect(() => {
     getMerchantOptions().then(setMerchants).catch(console.error);

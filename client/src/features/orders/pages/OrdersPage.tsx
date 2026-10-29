@@ -1,40 +1,42 @@
-import React, { useState } from "react";
-import { exportOrders, updateOrder } from "./services/ordersApi";
-import { errorMessage } from "./services/errors";
-import { useAuth } from "./AuthContext";
-import { isAdmin as isAdminRole } from "./utils/roles";
-import { usePagedOrders } from "./hooks/usePagedOrders";
-import FormOrder from "./FormOrder";
-import OrderDetails from "./OrderDetails";
-import BulkActions from "./BulkActions";
-import CourierSelect from "./CourierSelect";
-import MerchantSelect from "./MerchantSelect";
-import Pagination from "./Pagination";
-import { OrdersHeader, OrderRow } from "./OrderRow";
-import { printLabel, printOrdersTable } from "./utils/print";
-import { convertArabicNumbersToEnglish } from "./utils/numberUtils";
-import { ORDER_STATUSES, statusLabel } from "./utils/orderStatus";
+import { useState } from "react";
+import type { OrderUpdate } from "@masar/shared";
+import type { Order } from "@/lib/types";
+import { exportOrders, updateOrder } from "@/features/orders/api/orders-api";
+import { errorMessage } from "@/lib/errors";
+import { useAuth } from "@/app/auth-context";
+import { isAdmin as isAdminRole } from "@/lib/roles";
+import { usePagedOrders } from "@/features/orders/hooks/use-paged-orders";
+import OrderForm from "@/features/orders/components/OrderForm";
+import OrderDetails from "@/features/orders/components/OrderDetailsDrawer";
+import BulkActions from "@/features/orders/components/BulkActions";
+import CourierSelect from "@/features/couriers/components/CourierSelect";
+import MerchantSelect from "@/features/merchants/components/MerchantSelect";
+import Pagination from "@/components/ui/Pagination";
+import { OrdersHeader, OrderRow } from "@/features/orders/components/OrderRow";
+import { printLabel, printOrdersTable } from "@/features/orders/lib/print";
+import { toLatinDigits } from "@/lib/digits";
+import { ORDER_STATUSES, statusLabel } from "@/lib/order-status";
 
 const PAGE_SIZE = 6;
 
-export default function Orders() {
+export default function OrdersPage() {
   const { user } = useAuth();
   const isAdmin = isAdminRole(user?.role);
-  const [editingOrder, setEditingOrder] = useState(null);
-  const [detailsId, setDetailsId] = useState(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   // Selected orders on the current page (cleared when the page or filters change).
-  const [selected, setSelected] = useState({});
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
 
   // 🔍 Filters (changing one goes back to page 1)
   const [filters, setFilters] = useState({ search: "", merchant: "", status: "", courier: "", date: "" });
-  const setFilter = (name) => (value) => {
+  const setFilter = (name: keyof typeof filters) => (value: string) => {
     setFilters((f) => ({ ...f, [name]: value }));
     setPage(1);
     setSelected({});
   };
-  const goToPage = (p) => {
+  const goToPage = (p: number) => {
     setPage(p);
     setSelected({});
   };
@@ -42,13 +44,13 @@ export default function Orders() {
 
   const { loading, ...result } = usePagedOrders({ ...filters, page, limit: PAGE_SIZE }, reloadKey);
   const selectedOrders = result.items.filter((o) => selected[o._id]);
-  const toggle = (id) => setSelected((s) => ({ ...s, [id]: !s[id] }));
+  const toggle = (id: string) => setSelected((s) => ({ ...s, [id]: !s[id] }));
   const allSelected = result.items.length > 0 && selectedOrders.length === result.items.length;
   const toggleAll = () => setSelected(allSelected ? {} : Object.fromEntries(result.items.map((o) => [o._id, true])));
 
-  const handleUpdate = async (changes) => {
+  const handleUpdate = async (changes: OrderUpdate) => {
     try {
-      if (Object.keys(changes).length) await updateOrder(editingOrder._id, changes);
+      if (editingOrder && Object.keys(changes).length) await updateOrder(editingOrder._id, changes);
       setEditingOrder(null);
       setReloadKey((k) => k + 1);
     } catch (err) {
@@ -61,7 +63,7 @@ export default function Orders() {
     try {
       if (!isAdmin) return printOrdersTable(result.items);
       const { data, meta } = await exportOrders(filters);
-      if (meta.truncated) alert(`سيتم طباعة أول ${data.length} من ${meta.total} أوردر`);
+      if (meta?.truncated) alert(`سيتم طباعة أول ${data.length} من ${meta?.total} أوردر`);
       printOrdersTable(data);
     } catch (err) {
       alert(errorMessage(err));
@@ -76,7 +78,7 @@ export default function Orders() {
           type="text"
           placeholder="بحث برقم الهاتف أو الباركود (من البداية)"
           value={search}
-          onChange={(e) => setFilter("search")(convertArabicNumbersToEnglish(e.target.value).replace(/\D/g, ""))}
+          onChange={(e) => setFilter("search")(toLatinDigits(e.target.value).replace(/\D/g, ""))}
           className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg"
         />
 
@@ -167,7 +169,7 @@ export default function Orders() {
               ✕
             </button>
             <h2 className="text-2xl font-bold mb-4 text-center">تعديل الطلب</h2>
-            <FormOrder initialData={editingOrder} onSubmit={handleUpdate} role={user?.role} />
+            <OrderForm initialData={editingOrder} onSubmit={handleUpdate} role={user?.role} />
           </div>
         </div>
       )}

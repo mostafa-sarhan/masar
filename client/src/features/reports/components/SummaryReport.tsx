@@ -1,27 +1,28 @@
-import Money from "./Money";
-import React, { useState } from "react";
-import { exportOrders } from "./services/ordersApi";
-import { errorMessage } from "./services/errors";
-import { useSummaryReport } from "./hooks/useSummaryReport";
-import MerchantSelect from "./MerchantSelect";
+import type { FeeValues } from "./FeeInputs";
+import Money from "@/components/ui/Money";
+import { useState } from "react";
+import { exportOrders } from "@/features/orders/api/orders-api";
+import { errorMessage } from "@/lib/errors";
+import { useSummaryReport } from "@/features/reports/hooks/use-summary-report";
+import MerchantSelect from "@/features/merchants/components/MerchantSelect";
 import FeeInputs from "./FeeInputs";
-import { downloadReport } from "./utils/excel";
-import { STATUS_LABELS, statusLabel } from "./utils/orderStatus";
+import { downloadReport } from "@/features/reports/lib/excel";
+import { ORDER_STATUSES, statusLabel } from "@/lib/order-status";
 
 // Statement for one company (merchant) over a date range. All amounts come from the server.
 export default function Company() {
   const [merchant, setMerchant] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [feeInput, setFeeInput] = useState({ courierFee: "", companyFee: "" });
-  const [fees, setFees] = useState(feeInput); // applied on blur
+  const [feeInput, setFeeInput] = useState<FeeValues>({ courierFee: "", companyFee: "" });
+  const [fees, setFees] = useState<FeeValues>(feeInput); // applied on blur
 
   const filters = { archived: "all", merchant, from, to };
   const { report, fees: usedFees } = useSummaryReport({ ...filters, ...fees });
-  const money = report?.money;
 
   const saveReport = async () => {
-    if (!report) return;
+    if (!report || !usedFees) return;
+    const money = report.money;
     try {
       const { data, meta } = await exportOrders(filters);
       if (meta.truncated) alert(`الملف يحتوي على أول ${data.length} من ${meta.total} أوردر`);
@@ -34,7 +35,7 @@ export default function Company() {
           ["تاريخ النهاية:", to, "", "", "", "عمولة الشركة:", money.companyCommission],
           ["إجمالي الأوردرات:", report.total.count, "", "", "", "فلوس التاجر بعد الخصم:", money.merchantNet],
           ["عمولة الشركة لكل أوردر:", usedFees.company],
-          ...Object.keys(STATUS_LABELS).map((s) => [`${statusLabel(s)}:`, report.byStatus[s]?.count ?? 0, "المبلغ:", report.byStatus[s]?.amount ?? 0]),
+          ...ORDER_STATUSES.map((s) => [`${statusLabel(s)}:`, report.byStatus[s]?.count ?? 0, "المبلغ:", report.byStatus[s]?.amount ?? 0]),
         ],
         columns: [
           { header: "رقم الشحنة", value: (o) => o.barcode },
@@ -70,7 +71,7 @@ export default function Company() {
       {/* Summary */}
       {report && (
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-          {Object.keys(STATUS_LABELS).map((s) => (
+          {ORDER_STATUSES.map((s) => (
             <div key={s} className="p-4 rounded-lg text-center border">
               <p className="text-sm text-gray-500">{statusLabel(s)}</p>
               <h3 className="text-xl font-bold">{report.byStatus[s]?.count ?? 0}</h3>
@@ -78,9 +79,9 @@ export default function Company() {
             </div>
           ))}
           {[
-            ["المبلغ المستلم", money.deliveredTotal],
-            ["عمولة الشركة", money.companyCommission],
-            ["فلوس التاجر بعد الخصم", money.merchantNet],
+            ["المبلغ المستلم", report.money.deliveredTotal],
+            ["عمولة الشركة", report.money.companyCommission],
+            ["فلوس التاجر بعد الخصم", report.money.merchantNet],
           ].map(([label, value]) => (
             <div key={label} className="p-4 rounded-lg text-center border">
               <p className="text-sm text-gray-500">{label}</p>

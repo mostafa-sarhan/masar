@@ -1,17 +1,18 @@
+import type { Order, AuditEventRow } from "@/lib/types";
 import { useEffect, useState } from "react";
-import { getOrder, getOrderHistory, trackingUrl } from "./services/ordersApi";
-import { errorMessage } from "./services/errors";
+import { getOrder, getOrderHistory, trackingUrl } from "@/features/orders/api/orders-api";
+import { errorMessage } from "@/lib/errors";
 import StatusTimeline from "./StatusTimeline";
-import Money from "./Money";
-import { formatDate } from "./utils/dataUtils";
-import { statusLabel } from "./utils/orderStatus";
+import Money from "@/components/ui/Money";
+import { formatDate } from "@/lib/format-date";
+import { statusLabel } from "@/lib/order-status";
 
-const ACTION_LABELS = { CREATE: "إنشاء", UPDATE: "تعديل", STATUS_CHANGE: "تغيير الحالة", DELETE: "حذف" };
+const ACTION_LABELS: Record<string, string> = { CREATE: "إنشاء", UPDATE: "تعديل", STATUS_CHANGE: "تغيير الحالة", DELETE: "حذف" };
 
 // Side panel: order data, status timeline, change history and the public tracking link.
-export default function OrderDetails({ orderId, onClose }) {
-  const [order, setOrder] = useState(null);
-  const [history, setHistory] = useState([]);
+export default function OrderDetailsDrawer({ orderId, onClose }: { orderId: string; onClose(): void }) {
+  const [order, setOrder] = useState<Order | null>(null);
+  const [history, setHistory] = useState<AuditEventRow[]>([]);
 
   useEffect(() => {
     Promise.all([getOrder(orderId), getOrderHistory(orderId)])
@@ -22,7 +23,7 @@ export default function OrderDetails({ orderId, onClose }) {
       .catch((err) => alert(errorMessage(err)));
   }, [orderId]);
 
-  const link = order && trackingUrl(order.trackingId);
+  const link = order ? trackingUrl(order.trackingId) : "";
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={onClose}>
@@ -49,7 +50,7 @@ export default function OrderDetails({ orderId, onClose }) {
                 ["ملاحظات", order.description || "-"],
                 ["التاريخ", formatDate(order.createdAt)],
               ].map(([k, v]) => (
-                <div key={k} className="contents">
+                <div key={k as string} className="contents">
                   <dt className="opacity-70">{k}</dt>
                   <dd className="col-span-2">{v}</dd>
                 </div>

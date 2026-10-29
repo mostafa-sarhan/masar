@@ -1,8 +1,8 @@
 import { useSearchParams } from "react-router-dom";
-import Company from "./Company";
-import Account from "./Account";
-import MerchantReport from "./reports/MerchantReport";
-import CourierReport from "./reports/CourierReport";
+import Company from "@/features/reports/components/SummaryReport";
+import Account from "@/features/reports/components/StatementReport";
+import MerchantReport from "@/features/reports/components/MerchantReport";
+import CourierReport from "@/features/reports/components/CourierReport";
 
 const TABS = {
   summary: { label: "الملخص", Component: Company },
@@ -14,7 +14,8 @@ const TABS = {
 // One Reports page with tabs (the tab is kept in the URL: /reports?tab=couriers).
 export default function Reports() {
   const [params, setParams] = useSearchParams();
-  const tab = TABS[params.get("tab")] ? params.get("tab") : "summary";
+  const requested = params.get("tab") as keyof typeof TABS | null;
+  const tab: keyof typeof TABS = requested && requested in TABS ? requested : "summary";
   const { Component } = TABS[tab];
 
   return (

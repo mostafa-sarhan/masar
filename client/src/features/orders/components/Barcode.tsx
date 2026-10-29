@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import JsBarcode from "jsbarcode";
 
 const OPTIONS = {
@@ -10,8 +10,8 @@ const OPTIONS = {
   fontSize: 10,
 };
 
-export default function Barcode({ value }) {
-  const svgRef = useRef(null);
+export default function Barcode({ value }: { value: string }) {
+  const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     if (svgRef.current && value) JsBarcode(svgRef.current, value, OPTIONS);

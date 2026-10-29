@@ -1,38 +1,46 @@
-import React, { useState } from "react";
-import { convertArabicNumbersToEnglish } from "./utils/numberUtils";
-import { nextStatuses, statusLabel } from "./utils/orderStatus";
-import CourierSelect from "./CourierSelect";
-import MerchantSelect from "./MerchantSelect";
+import { useState, type FormEvent } from "react";
+import type { CreateOrderInput, OrderUpdate, OrderStatus, Role } from "@masar/shared";
+import type { Order } from "@/lib/types";
+import { toLatinDigits } from "@/lib/digits";
+import { nextStatuses, statusLabel } from "@/lib/order-status";
+import CourierSelect from "@/features/couriers/components/CourierSelect";
+import MerchantSelect from "@/features/merchants/components/MerchantSelect";
 
 // Create (no initialData) or admin edit. On edit only the fields that changed are sent.
-export default function FormOrder({ initialData, onSubmit, role }) {
+type OrderFormProps =
+  | { initialData?: undefined; onSubmit(data: CreateOrderInput): void; role?: Role }
+  | { initialData: Order; onSubmit(changes: OrderUpdate): void; role?: Role };
+
+type FormState = { fullName: string; address: string; phone: string; cost: string; merchant: string; courier: string; status: OrderStatus };
+
+export default function OrderForm({ initialData, onSubmit, role }: OrderFormProps) {
   const editing = !!initialData;
   const start = {
     fullName: initialData?.fullName || "",
     address: initialData?.address || "",
     phone: initialData?.phone || "",
-    cost: initialData?.cost ?? "",
+    cost: String(initialData?.cost ?? ""),
     merchant: initialData?.merchant?._id || "",
     courier: initialData?.courier?._id || "",
-    status: initialData?.status || "pending",
+    status: (initialData?.status || "pending") as OrderStatus,
   };
-  const [form, setForm] = useState(start);
-  const set = (name) => (value) => setForm((f) => ({ ...f, [name]: value }));
+  const [form, setForm] = useState<FormState>(start);
+  const set = (name: keyof FormState) => (value: string) => setForm((f) => ({ ...f, [name]: value }));
   const statusOptions = editing ? [start.status, ...nextStatuses(start.status, role)] : [];
 
-  const normalize = (f) => ({ ...f, cost: Number(f.cost), courier: f.courier || null });
+  const normalize = (f: FormState) => ({ ...f, cost: Number(f.cost), courier: f.courier || null });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const { status, courier, ...data } = normalize(form);
-    if (!editing) return onSubmit(courier ? { ...data, courier } : data);
+    if (!initialData) return (onSubmit as (d: CreateOrderInput) => void)(courier ? { ...data, courier } : data);
 
-    const before = normalize(start);
+    const before: Record<string, unknown> = normalize(start);
     const after = { ...data, courier, status };
-    onSubmit(Object.fromEntries(Object.entries(after).filter(([k, v]) => v !== before[k])));
+    (onSubmit as (c: OrderUpdate) => void)(Object.fromEntries(Object.entries(after).filter(([k, v]) => v !== before[k])) as OrderUpdate);
   };
 
-  const field = (label, name, transform = (v) => v) => (
+  const field = (label: string, name: keyof FormState, transform: (v: string) => string = (v) => v) => (
     <div className="flex flex-col">
       <label className="mb-1 text-2xl text-right">{label}</label>
       <input value={form[name]} onChange={(e) => set(name)(transform(e.target.value))} className="border rounded-lg p-2" required />
@@ -42,9 +50,9 @@ export default function FormOrder({ initialData, onSubmit, role }) {
   return (
     <form className="grid grid-cols-2 gap-8 w-[90%]" onSubmit={handleSubmit}>
       {field("اسم العميل", "fullName")}
-      {field("رقم الهاتف", "phone", convertArabicNumbersToEnglish)}
+      {field("رقم الهاتف", "phone", toLatinDigits)}
       {field("العنوان", "address")}
-      {field("المبلغ", "cost", convertArabicNumbersToEnglish)}
+      {field("المبلغ", "cost", toLatinDigits)}
 
       <div className="flex flex-col">
         <label className="mb-1 text-2xl text-right">اسم الشركة</label>

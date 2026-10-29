@@ -1,10 +1,10 @@
-import Money from "./Money";
-import React, { useState } from "react";
-import { usePagedOrders } from "./hooks/usePagedOrders";
-import MerchantSelect from "./MerchantSelect";
-import Pagination from "./Pagination";
-import { OrdersHeader, OrderRow } from "./OrderRow";
-import { FINAL_STATUSES, statusLabel } from "./utils/orderStatus";
+import Money from "@/components/ui/Money";
+import { useState } from "react";
+import { usePagedOrders } from "@/features/orders/hooks/use-paged-orders";
+import MerchantSelect from "@/features/merchants/components/MerchantSelect";
+import Pagination from "@/components/ui/Pagination";
+import { OrdersHeader, OrderRow } from "@/features/orders/components/OrderRow";
+import { FINAL_STATUSES, statusLabel } from "@/lib/order-status";
 
 const PAGE_SIZE = 20;
 
@@ -13,7 +13,7 @@ export default function Archive() {
 
   // 🔍 Filters (changing one goes back to page 1)
   const [filters, setFilters] = useState({ merchant: "", status: "", date: "" });
-  const setFilter = (name) => (value) => {
+  const setFilter = (name: keyof typeof filters) => (value: string) => {
     setFilters((f) => ({ ...f, [name]: value }));
     setPage(1);
   };

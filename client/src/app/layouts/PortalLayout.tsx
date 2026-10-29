@@ -1,8 +1,9 @@
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "@/app/auth-context";
 
 // Minimal shell for the courier view and the merchant portal (no staff sidebar).
-export default function PortalLayout({ title, children }) {
+export default function PortalLayout({ title, children }: { title: string; children: ReactNode }) {
   const { user, tenant, logout } = useAuth();
   const navigate = useNavigate();
   return (

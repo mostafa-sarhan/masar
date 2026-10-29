@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import StatesCard from "./StatesCard";
+import { useEffect, useState } from "react";
+import StatesCard from "@/features/dashboard/components/StatCard";
 import {
   PieChart,
   Pie,
@@ -8,9 +8,9 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import DashboardLatestOrders from "./DashboardLatestOrders";
-import { getOrderStats } from "../services/ordersApi";
-import { statusLabel } from "../utils/orderStatus";
+import DashboardLatestOrders from "@/features/dashboard/components/LatestOrders";
+import { getOrderStats } from "@/features/orders/api/orders-api";
+import { statusLabel } from "@/lib/order-status";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({

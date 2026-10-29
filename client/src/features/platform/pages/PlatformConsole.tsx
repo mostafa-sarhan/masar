@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import type { Plan, TenantStatus } from "@masar/shared";
+import type { TenantRow, AccessRequestRow, PageMeta } from "@/lib/types";
+import type { PlatformAdmin } from "@/features/platform/api/platform-api";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   getTenants,
   createTenant,
@@ -7,19 +10,21 @@ import {
   approveAccessRequest,
   rejectAccessRequest,
   getPlatformAuditLogs,
-} from "../services/platformApi";
-import { errorMessage } from "../services/errors";
-import { formatDate } from "../utils/dataUtils";
-import Pagination from "../Pagination";
+} from "@/features/platform/api/platform-api";
+import { errorMessage } from "@/lib/errors";
+import { formatDate } from "@/lib/format-date";
+import Pagination from "@/components/ui/Pagination";
 
-const PLAN_LABELS = { trial: "تجريبي", starter: "أساسي", pro: "احترافي" };
-const STATUS_LABELS = { trial: "تجريبي", active: "نشط", suspended: "موقوف", pending: "قيد المراجعة", approved: "مقبول", rejected: "مرفوض" };
+const PLAN_LABELS: Record<Plan, string> = { trial: "تجريبي", starter: "أساسي", pro: "احترافي" };
+const STATUS_LABELS: Record<string, string> = { trial: "تجريبي", active: "نشط", suspended: "موقوف", pending: "قيد المراجعة", approved: "مقبول", rejected: "مرفوض" };
 const TABS = { tenants: "الشركات", requests: "طلبات الانضمام", audit: "سجل المنصة" };
 
 // Functional platform console; the visual design comes in Phase E.
-export default function PlatformConsole({ admin, onLogout }) {
-  const [tab, setTab] = useState("tenants");
-  const [credentials, setCredentials] = useState(null); // { email, password } shown once
+type Credentials = { email: string; password: string };
+
+export default function PlatformConsole({ admin, onLogout }: { admin: PlatformAdmin; onLogout(): void }) {
+  const [tab, setTab] = useState<keyof typeof TABS>("tenants");
+  const [credentials, setCredentials] = useState<Credentials | null>(null); // shown once
 
   return (
     <div className="min-h-screen bg-main text-white p-6 space-y-6">
@@ -33,7 +38,7 @@ export default function PlatformConsole({ admin, onLogout }) {
 
       <nav className="flex gap-2">
         {Object.entries(TABS).map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} className={`px-4 py-2 rounded ${tab === key ? "bg-orange" : "bg-edit"}`}>
+          <button key={key} onClick={() => setTab(key as keyof typeof TABS)} className={`px-4 py-2 rounded ${tab === key ? "bg-orange" : "bg-edit"}`}>
             {label}
           </button>
         ))}
@@ -59,9 +64,9 @@ export default function PlatformConsole({ admin, onLogout }) {
   );
 }
 
-function usePaged(load, deps) {
+function usePaged<T>(load: (page: number) => Promise<{ data: T[]; meta: PageMeta }>, deps: unknown[]) {
   const [page, setPage] = useState(1);
-  const [result, setResult] = useState({ items: [], pages: 0 });
+  const [result, setResult] = useState<{ items: T[]; pages: number }>({ items: [], pages: 0 });
   const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     load(page)
@@ -72,11 +77,11 @@ function usePaged(load, deps) {
   return { ...result, page, setPage, reload: () => setReloadKey((k) => k + 1) };
 }
 
-function Tenants({ onCreated }) {
-  const list = usePaged((page) => getTenants({ page }), []);
-  const [form, setForm] = useState({ name: "", ownerEmail: "", plan: "trial" });
+function Tenants({ onCreated }: { onCreated(c: Credentials): void }) {
+  const list = usePaged((page: number) => getTenants({ page }), []);
+  const [form, setForm] = useState<{ name: string; ownerEmail: string; plan: Plan }>({ name: "", ownerEmail: "", plan: "trial" });
 
-  const create = async (e) => {
+  const create = async (e: FormEvent) => {
     e.preventDefault();
     try {
       const { owner, initialPassword } = await createTenant(form);
@@ -88,7 +93,7 @@ function Tenants({ onCreated }) {
     }
   };
 
-  const change = async (tenant, body) => {
+  const change = async (tenant: TenantRow, body: { plan?: Plan; status?: TenantStatus }) => {
     if (body.status === "suspended" && !window.confirm(`إيقاف ${tenant.name}؟ سيتم تسجيل خروج كل المستخدمين وإيقاف مفاتيح API.`)) return;
     try {
       await updateTenant(tenant._id, body);
@@ -103,7 +108,7 @@ function Tenants({ onCreated }) {
       <form onSubmit={create} className="flex gap-3 flex-wrap items-center">
         <input required placeholder="اسم الشركة" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border rounded p-2 text-black bg-white" />
         <input required type="email" placeholder="إيميل المالك" value={form.ownerEmail} onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })} className="border rounded p-2 text-black bg-white" />
-        <select value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value })} className="border rounded p-2 text-black bg-white">
+        <select value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value as Plan })} className="border rounded p-2 text-black bg-white">
           {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
         <button className="bg-green-600 px-4 py-2 rounded">إضافة شركة</button>
@@ -119,7 +124,7 @@ function Tenants({ onCreated }) {
               <td className="p-2">{t.name}</td>
               <td className="p-2" dir="ltr">{t.slug}</td>
               <td className="p-2">
-                <select value={t.plan} onChange={(e) => change(t, { plan: e.target.value })} className="text-black bg-white rounded p-1">
+                <select value={t.plan} onChange={(e) => change(t, { plan: e.target.value as Plan })} className="text-black bg-white rounded p-1">
                   {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </td>
@@ -143,11 +148,11 @@ function Tenants({ onCreated }) {
   );
 }
 
-function Requests({ onApproved }) {
-  const [status, setStatus] = useState("pending");
-  const list = usePaged((page) => getAccessRequests({ page, status }), [status]);
+function Requests({ onApproved }: { onApproved(c: Credentials): void }) {
+  const [status, setStatus] = useState<AccessRequestRow["status"]>("pending");
+  const list = usePaged((page: number) => getAccessRequests({ page, status }), [status]);
 
-  const approve = async (r) => {
+  const approve = async (r: AccessRequestRow) => {
     try {
       const { owner, initialPassword } = await approveAccessRequest(r._id);
       onApproved({ email: owner.email, password: initialPassword });
@@ -156,7 +161,7 @@ function Requests({ onApproved }) {
       alert(errorMessage(err));
     }
   };
-  const reject = async (r) => {
+  const reject = async (r: AccessRequestRow) => {
     const reason = window.prompt("سبب الرفض (اختياري)") ?? undefined;
     try {
       await rejectAccessRequest(r._id, reason || undefined);
@@ -168,7 +173,7 @@ function Requests({ onApproved }) {
 
   return (
     <div className="space-y-4">
-      <select value={status} onChange={(e) => { setStatus(e.target.value); list.setPage(1); }} className="border rounded p-2 text-black bg-white">
+      <select value={status} onChange={(e) => { setStatus(e.target.value as AccessRequestRow["status"]); list.setPage(1); }} className="border rounded p-2 text-black bg-white">
         {["pending", "approved", "rejected"].map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
       </select>
       <table className="w-full text-center text-sm border">
@@ -202,7 +207,7 @@ function Requests({ onApproved }) {
 }
 
 function Audit() {
-  const list = usePaged((page) => getPlatformAuditLogs({ page, limit: 30 }), []);
+  const list = usePaged((page: number) => getPlatformAuditLogs({ page, limit: 30 }), []);
   return (
     <div>
       <table className="w-full text-center text-sm border">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import Logo from "/src/assets/logo.png";
+import Logo from "@/assets/logo.png";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "@/app/auth-context";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -36,7 +36,7 @@ export default function Navbar() {
           <div className="hidden md:flex space-x-6 items-center justify-around w-[60%]">
             <NavLink to="/" className={linkClass}>الرئيسية</NavLink>
             <NavLink to="/services" className={linkClass}>خدمتنا</NavLink>
-            <NavLink to="/who" className={linkClass}>من نحن</NavLink>
+            <NavLink to="/about" className={linkClass}>من نحن</NavLink>
 
             {!user ? (
               <Link to="/login" className="bg-white text-main px-4 py-1 rounded hover:bg-gray-200 font-semibold transition-colors">
@@ -77,7 +77,7 @@ export default function Navbar() {
           <div className="flex flex-col text-white items-center gap-8 mt-10">
             <NavLink to="/" onClick={() => setOpen(false)} className="text-2xl font-bold p-2 rounded-lg">الرئيسية</NavLink>
             <NavLink to="/services" onClick={() => setOpen(false)} className="text-2xl font-bold p-2 rounded-lg">خدمتنا</NavLink>
-            <NavLink to="/who" onClick={() => setOpen(false)} className="text-2xl font-bold p-2 rounded-lg">من نحن</NavLink>
+            <NavLink to="/about" onClick={() => setOpen(false)} className="text-2xl font-bold p-2 rounded-lg">من نحن</NavLink>
 
             {!user ? (
               <Link

@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
-import { platformLogin, platformLogout, platformMe, platformRefresh } from "../services/platformApi";
-import { setSessionLostHandler } from "../services/api";
-import { errorMessage } from "../services/errors";
+import { useEffect, useState, type FormEvent } from "react";
+import { platformLogin, platformLogout, platformMe, platformRefresh } from "@/features/platform/api/platform-api";
+import { setSessionLostHandler } from "@/lib/api-client";
+import { errorMessage } from "@/lib/errors";
 import PlatformConsole from "./PlatformConsole";
-import ChangePasswordForm from "../ChangePasswordForm";
-import { platformChangePassword } from "../services/platformApi";
+import ChangePasswordForm from "@/features/auth/components/ChangePasswordForm";
+import { platformChangePassword, type PlatformAdmin } from "@/features/platform/api/platform-api";
 
 // Platform-admin area: its own login and session, never inside a tenant.
 export default function PlatformApp() {
-  const [admin, setAdmin] = useState(null);
+  const [admin, setAdmin] = useState<PlatformAdmin | null>(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function PlatformApp() {
       <ChangePasswordForm
         title="غيّر الباسورد المؤقت"
         note="باسورد مُولّد للاستخدام مرة واحدة."
-        onSubmit={async (current, next) => (await platformChangePassword(current, next)).admin}
+        onSubmit={async (current: string, next: string) => (await platformChangePassword(current, next)).admin}
         onDone={setAdmin}
       />
     );
@@ -43,12 +43,12 @@ export default function PlatformApp() {
   );
 }
 
-function PlatformLogin({ onLogin }) {
+function PlatformLogin({ onLogin }: { onLogin(admin: PlatformAdmin): void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const submit = async (e) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     try {

@@ -1,10 +1,12 @@
+import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "./AuthContext";
-import ChangePasswordForm from "./ChangePasswordForm";
-import { changeOwnPassword } from "./services/authService";
-import { homeFor } from "./utils/roles";
+import type { Role } from "@masar/shared";
+import { useAuth } from "./auth-context";
+import ChangePasswordForm from "@/features/auth/components/ChangePasswordForm";
+import { changeOwnPassword } from "@/features/auth/api/auth-api";
+import { homeFor } from "@/lib/roles";
 
-export default function ProtectedRoute({ children, allow }) {
+export default function ProtectedRoute({ children, allow }: { children: ReactNode; allow?: Role[] }) {
   const { user, checking, passwordChanged } = useAuth();
 
   if (checking) {
@@ -20,7 +22,7 @@ export default function ProtectedRoute({ children, allow }) {
       <ChangePasswordForm
         title="غيّر الباسورد المؤقت"
         note="هذا الباسورد للاستخدام مرة واحدة. اختر باسورد خاص بك للمتابعة."
-        onSubmit={async (current, next) => (await changeOwnPassword(current, next)).user}
+        onSubmit={async (current: string, next: string) => (await changeOwnPassword(current, next)).user}
         onDone={passwordChanged}
       />
     );

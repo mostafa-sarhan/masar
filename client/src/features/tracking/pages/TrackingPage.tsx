@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { trackShipment } from "./services/ordersApi";
-import { errorMessage } from "./services/errors";
-import StatusTimeline from "./StatusTimeline";
-import { statusLabel } from "./utils/orderStatus";
+import { trackShipment } from "@/features/orders/api/orders-api";
+import { errorMessage } from "@/lib/errors";
+import StatusTimeline from "@/features/orders/components/StatusTimeline";
+import { statusLabel } from "@/lib/order-status";
+import type { TrackingResult } from "@/lib/types";
+import { ApiError } from "@/lib/api-client";
 
 // Public page for customers: /track/:trackingId. Status timeline only.
 export default function TrackingPage() {
   const { trackingId } = useParams();
   const navigate = useNavigate();
   const [input, setInput] = useState(trackingId || "");
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<TrackingResult | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -18,7 +20,7 @@ export default function TrackingPage() {
     let cancelled = false;
     trackShipment(trackingId)
       .then((data) => !cancelled && (setResult(data), setError("")))
-      .catch((err) => !cancelled && (setResult(null), setError(err.code === "NOT_FOUND" ? "رقم التتبع غير صحيح" : errorMessage(err))));
+      .catch((err) => !cancelled && (setResult(null), setError(err instanceof ApiError && err.code === "NOT_FOUND" ? "رقم التتبع غير صحيح" : errorMessage(err))));
     return () => {
       cancelled = true;
     };

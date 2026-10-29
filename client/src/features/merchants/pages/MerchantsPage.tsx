@@ -1,18 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, updateMerchant } from "./services/resourcesApi";
-import { errorMessage } from "./services/errors";
-import { createMerchantUser } from "./services/portalsApi";
-import { promptAccount } from "./utils/promptAccount";
+import type { Merchant } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, updateMerchant } from "@/lib/resources-api";
+import { errorMessage } from "@/lib/errors";
+import { createMerchantUser } from "@/lib/portals-api";
+import { promptAccount } from "@/lib/prompt-account";
 
 export default function Member() {
-  const [merchants, setMerchants] = useState([]);
+  const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
 
   const [merchantName, setMerchantName] = useState("");
   const [adding, setAdding] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [newKey, setNewKey] = useState(null); // { name, apiKey } shown once
+  const [newKey, setNewKey] = useState<{ name: string; apiKey: string | null } | null>(null); // shown once
 
   useEffect(() => {
     getMerchants()
@@ -39,7 +40,7 @@ export default function Member() {
     }
   };
 
-  const handleRotate = async (m) => {
+  const handleRotate = async (m: Merchant) => {
     if (!window.confirm(`سيتم إيقاف المفتاح الحالي لـ ${m.name} فورًا. متابعة؟`)) return;
     try {
       const { apiKey } = await rotateMerchantKey(m._id);
@@ -51,8 +52,8 @@ export default function Member() {
   };
 
   // Empty = use the company's default fee (Settings).
-  const handleCompanyFee = async (m) => {
-    const value = window.prompt(`عمولة الشركة لـ ${m.name} لكل أوردر مسلّم (اتركها فارغة لاستخدام الافتراضي)`, m.companyFee ?? "");
+  const handleCompanyFee = async (m: Merchant) => {
+    const value = window.prompt(`عمولة الشركة لـ ${m.name} لكل أوردر مسلّم (اتركها فارغة لاستخدام الافتراضي)`, String(m.companyFee ?? ""));
     if (value === null) return;
     try {
       await updateMerchant(m._id, { companyFee: value.trim() === "" ? null : Number(value) });
@@ -62,7 +63,7 @@ export default function Member() {
     }
   };
 
-  const handleRevoke = async (m) => {
+  const handleRevoke = async (m: Merchant) => {
     if (!window.confirm(`إلغاء مفتاح ${m.name}؟ لن يتمكن من إرسال أوردرات.`)) return;
     try {
       await revokeMerchantKey(m._id);
@@ -109,7 +110,7 @@ export default function Member() {
             <p className="text-yellow-400 text-sm">انسخ المفتاح الآن، لن يظهر مرة أخرى.</p>
             <code className="block bg-gray-800 p-3 rounded break-all select-all" dir="ltr">{newKey.apiKey}</code>
             <div className="flex justify-end gap-3">
-              <button className="px-4 py-2 bg-blue-600 rounded" onClick={() => navigator.clipboard?.writeText(newKey.apiKey)}>نسخ</button>
+              <button className="px-4 py-2 bg-blue-600 rounded" onClick={() => navigator.clipboard?.writeText(newKey.apiKey ?? "")}>نسخ</button>
               <button className="px-4 py-2 bg-gray-600 rounded" onClick={() => setNewKey(null)}>تم</button>
             </div>
           </div>
@@ -154,7 +155,7 @@ export default function Member() {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan="6" className="p-4">لا يوجد تجار</td></tr>
+                <tr><td colSpan={6} className="p-4">لا يوجد تجار</td></tr>
               )}
             </tbody>
           </table>

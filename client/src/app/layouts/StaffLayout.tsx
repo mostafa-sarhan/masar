@@ -1,5 +1,5 @@
-import Navbar from "./Navbar";
-import Right from "./Right";
+import Navbar from "./TopBar";
+import Right from "./SideNav";
 import { Outlet } from "react-router-dom";
 import { useState } from "react";
 

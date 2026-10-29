@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from "react";
-import { getOrders } from "../services/ordersApi";
-import { OrdersHeader, OrderRow } from "../OrderRow";
+import { useEffect, useState } from "react";
+import type { Order } from "@/lib/types";
+import { getOrders } from "@/features/orders/api/orders-api";
+import { OrdersHeader, OrderRow } from "@/features/orders/components/OrderRow";
 
 const LATEST_COUNT = 3;
 
 export default function DashboardLatestOrders() {
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     getOrders({ limit: LATEST_COUNT })

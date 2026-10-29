@@ -1,13 +1,13 @@
 {
-  "name": "sys_shipping",
+  "name": "@masar/client",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -16,7 +16,8 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.4",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "@masar/shared": "*"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -29,8 +30,5 @@
     "globals": "^17.13.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.5"
-  },
-  "overrides": {
-    "uuid": "^11.1.1"
   }
 }

@@ -1,15 +1,17 @@
-import Money from "./Money";
-import React, { useState } from "react";
-import { exportOrders } from "./services/ordersApi";
-import { errorMessage } from "./services/errors";
-import { useSummaryReport } from "./hooks/useSummaryReport";
-import { usePagedOrders } from "./hooks/usePagedOrders";
-import CourierSelect from "./CourierSelect";
-import MerchantSelect from "./MerchantSelect";
+import type { FeeValues } from "./FeeInputs";
+import type { Order } from "@/lib/types";
+import Money from "@/components/ui/Money";
+import { useState } from "react";
+import { exportOrders } from "@/features/orders/api/orders-api";
+import { errorMessage } from "@/lib/errors";
+import { useSummaryReport } from "@/features/reports/hooks/use-summary-report";
+import { usePagedOrders } from "@/features/orders/hooks/use-paged-orders";
+import CourierSelect from "@/features/couriers/components/CourierSelect";
+import MerchantSelect from "@/features/merchants/components/MerchantSelect";
 import FeeInputs from "./FeeInputs";
-import Pagination from "./Pagination";
-import { downloadReport } from "./utils/excel";
-import { ORDER_STATUSES, STATUS_LABELS, statusLabel } from "./utils/orderStatus";
+import Pagination from "@/components/ui/Pagination";
+import { downloadReport } from "@/features/reports/lib/excel";
+import { ORDER_STATUSES, statusLabel } from "@/lib/order-status";
 
 const PAGE_SIZE = 25;
 
@@ -18,9 +20,9 @@ const PAGE_SIZE = 25;
 export default function Account() {
   const [filters, setFilters] = useState({ courier: "", status: "", merchant: "", from: "", to: "" });
   const [page, setPage] = useState(1);
-  const [feeInput, setFeeInput] = useState({ courierFee: "", companyFee: "" });
-  const [fees, setFees] = useState(feeInput);
-  const setFilter = (name) => (value) => {
+  const [feeInput, setFeeInput] = useState<FeeValues>({ courierFee: "", companyFee: "" });
+  const [fees, setFees] = useState<FeeValues>(feeInput);
+  const setFilter = (name: keyof typeof filters) => (value: string) => {
     setFilters((f) => ({ ...f, [name]: value }));
     setPage(1);
   };
@@ -29,11 +31,11 @@ export default function Account() {
   const { report, fees: usedFees } = useSummaryReport({ ...query, ...fees });
   const { items } = usePagedOrders({ ...query, page, limit: PAGE_SIZE });
   const pages = report ? Math.ceil(report.total.count / PAGE_SIZE) : 0;
-  const money = report?.money;
-  const commission = (o) => (o.status === "delivered" ? usedFees?.courier ?? 0 : 0);
+  const commission = (o: Order) => (o.status === "delivered" ? usedFees?.courier ?? 0 : 0);
 
   const saveReport = async () => {
-    if (!report) return;
+    if (!report || !usedFees) return;
+    const money = report.money;
     try {
       const { data, meta } = await exportOrders(query);
       if (meta.truncated) alert(`الملف يحتوي على أول ${data.length} من ${meta.total} أوردر`);
@@ -47,7 +49,7 @@ export default function Account() {
           ["", "", "", "", "", "المتبقي بعد العمولة:", money.afterCourier],
           ["", "", "", "", "", "ربح الشركة:", money.companyCommission],
           ["", "", "", "", "", "فلوس التاجر:", money.merchantNet],
-          ...Object.keys(STATUS_LABELS).map((s) => [`${statusLabel(s)}:`, report.byStatus[s]?.count ?? 0]),
+          ...ORDER_STATUSES.map((s) => [`${statusLabel(s)}:`, report.byStatus[s]?.count ?? 0]),
         ],
         columns: [
           { header: "رقم الشحنة", value: (o) => o.barcode },
@@ -97,7 +99,7 @@ export default function Account() {
       {/* Summary */}
       {report && (
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          {Object.keys(STATUS_LABELS).map((s) => (
+          {ORDER_STATUSES.map((s) => (
             <div key={s} className="p-4 rounded-lg text-center border">
               <p className="text-sm text-gray-500">{statusLabel(s)}</p>
               <h3 className="text-xl font-bold">{report.byStatus[s]?.count ?? 0}</h3>
@@ -105,11 +107,11 @@ export default function Account() {
           ))}
           {[
             ["الإجمالي الكلي", report.total.amount],
-            ["الإجمالي المسلّم", money.deliveredTotal],
-            ["عمولة المندوب", money.courierCommission],
-            ["المتبقي بعد العمولة", money.afterCourier],
-            ["ربح الشركة", money.companyCommission],
-            ["فلوس التاجر", money.merchantNet],
+            ["الإجمالي المسلّم", report.money.deliveredTotal],
+            ["عمولة المندوب", report.money.courierCommission],
+            ["المتبقي بعد العمولة", report.money.afterCourier],
+            ["ربح الشركة", report.money.companyCommission],
+            ["فلوس التاجر", report.money.merchantNet],
           ].map(([label, value]) => (
             <div key={label} className="p-4 rounded-lg text-center border">
               <p className="text-sm text-gray-500">{label}</p>

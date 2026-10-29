@@ -1,26 +1,27 @@
-import Money from "./Money";
-import React, { useState, useRef } from "react";
-import CourierSelect from "./CourierSelect";
-import { OrdersHeader, OrderRow } from "./OrderRow";
-import { getOrderByBarcode, bulkAssign } from "./services/ordersApi";
-import { errorMessage } from "./services/errors";
-import { printCourierSheet } from "./utils/print";
+import Money from "@/components/ui/Money";
+import { useState, useRef } from "react";
+import CourierSelect from "@/features/couriers/components/CourierSelect";
+import { OrdersHeader, OrderRow } from "@/features/orders/components/OrderRow";
+import { getOrderByBarcode, bulkAssign } from "@/features/orders/api/orders-api";
+import { errorMessage } from "@/lib/errors";
+import { printCourierSheet } from "@/features/orders/lib/print";
+import type { Order, Courier } from "@/lib/types";
 
 // Scan pending orders, then hand them all to one courier in a single request.
-export default function AddDelivery() {
+export default function AssignCourierPage() {
   const [barcodeInput, setBarcodeInput] = useState("");
-  const [scannedOrders, setScannedOrders] = useState([]);
+  const [scannedOrders, setScannedOrders] = useState<Order[]>([]);
   const [courier, setCourier] = useState("");
-  const [couriers, setCouriers] = useState([]);
+  const [couriers, setCouriers] = useState<Courier[]>([]);
   const [assigned, setAssigned] = useState(false);
 
   const totalCost = scannedOrders.reduce((sum, order) => sum + Number(order.cost || 0), 0);
   const courierName = couriers.find((c) => c._id === courier)?.name || "";
 
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const isScanningRef = useRef(false);
 
-  const handleScan = async (rawValue) => {
+  const handleScan = async (rawValue: string) => {
     const barcode = rawValue.trim();
     if (!barcode || isScanningRef.current) return;
     isScanningRef.current = true;
@@ -53,7 +54,7 @@ export default function AddDelivery() {
     try {
       await bulkAssign(scannedOrders.map((o) => o._id), courier);
       alert("تم تحديث المندوب لجميع المنتجات");
-      setScannedOrders((prev) => prev.map((o) => ({ ...o, status: "with_courier", courier: { _id: courier, name: courierName } })));
+      setScannedOrders((prev) => prev.map((o) => ({ ...o, status: "with_courier" as const, courier: { _id: courier, name: courierName } })));
       setAssigned(true);
     } catch (err) {
       alert(errorMessage(err)); // nothing was changed

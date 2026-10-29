@@ -1,18 +1,19 @@
-import React, { useState } from "react";
-import { createOrder } from "./services/ordersApi";
-import { errorMessage } from "./services/errors";
-import FormOrder from "./FormOrder";
+import { useState } from "react";
+import type { CreateOrderInput } from "@masar/shared";
+import { createOrder } from "@/features/orders/api/orders-api";
+import { errorMessage } from "@/lib/errors";
+import OrderForm from "@/features/orders/components/OrderForm";
 
-export default function Neworder() {
-  const [message, setMessage] = useState(null);
+export default function NewOrderPage() {
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [formKey, setFormKey] = useState(0);
 
-  const flash = (type, text) => {
+  const flash = (type: "success" | "error", text: string) => {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 2500);
   };
 
-  const handleSubmit = async (data) => {
+  const handleSubmit = async (data: CreateOrderInput) => {
     try {
       const order = await createOrder(data);
       flash("success", `تم إضافة الطلب بنجاح! الباركود: ${order.barcode}`);
@@ -30,7 +31,7 @@ export default function Neworder() {
           {message.text}
         </div>
       )}
-      <FormOrder key={formKey} onSubmit={handleSubmit} />
+      <OrderForm key={formKey} onSubmit={handleSubmit} />
     </div>
   );
 }
