@@ -1,0 +1,34 @@
+{
+  "name": "masar",
+  "private": true,
+  "description": "Masar | مسار — shipping company management SaaS",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "npm run build -w @masar/shared && concurrently -k -n shared,api,web -c gray,blue,magenta \"npm run dev -w @masar/shared\" \"npm run dev -w @masar/server\" \"npm run dev -w @masar/client\"",
+    "build": "npm run build -w @masar/shared && npm run build -w @masar/server && npm run build -w @masar/client",
+    "test": "npm run build -w @masar/shared && npm test -w @masar/server",
+    "lint": "eslint .",
+    "typecheck": "npm run build -w @masar/shared && npm run typecheck --workspaces --if-present"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.6",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.13.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.1"
+  },
+  "type": "module"
+}

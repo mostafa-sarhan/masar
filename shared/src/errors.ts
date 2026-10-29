@@ -1,0 +1,28 @@
+// Stable, English error codes. The client maps them to user-facing (Arabic) text.
+export const ERROR_CODES = [
+  "VALIDATION_ERROR",
+  "INVALID_ID",
+  "UNAUTHENTICATED",
+  "INVALID_CREDENTIALS",
+  "SESSION_EXPIRED",
+  "FORBIDDEN",
+  "FORBIDDEN_FIELDS",
+  "CSRF_REJECTED",
+  "NOT_FOUND",
+  "CONFLICT",
+  "DUPLICATE",
+  "INVALID_STATUS_TRANSITION",
+  "WEAK_PASSWORD",
+  "LAST_ADMIN",
+  "LAST_OWNER",
+  "TENANT_SUSPENDED",
+  "TRIAL_EXPIRED",
+  "PLAN_LIMIT_REACHED",
+  "PASSWORD_CHANGE_REQUIRED",
+  "INVALID_FILE",
+  "IMPORT_INVALID",
+  "RATE_LIMITED",
+  "PAYLOAD_TOO_LARGE",
+  "INTERNAL_ERROR",
+] as const;
+export type ErrorCode = (typeof ERROR_CODES)[number];
