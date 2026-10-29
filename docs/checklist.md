@@ -45,7 +45,7 @@ Branch `demo-upgrade` in both repos: `express/` (API) and `sys_shipping/` (front
 ## ~~Phase 2 — Redesign proposal~~
 Dropped: replaced by Phase C (SaaS) and Phase E (design).
 
-## Phase 3 — Demo Mode (DEMO_MODE=true)
+## Phase 3 — Demo Mode (DEMO_MODE=true) — next, waiting for go-ahead
 - [ ] One-click login per role
 - [ ] Seed data
 - [ ] Reset command (cron hourly)
@@ -53,8 +53,14 @@ Dropped: replaced by Phase C (SaaS) and Phase E (design).
 - [ ] Safety: no emails/payments, block password changes, rate limit, upload limit
 - [ ] Guided tour
 
-## Phase E — Design (next, waiting for go-ahead)
-- [ ] Redesign (Arabic RTL first) + landing page with the Request access form
+## Phase E — Masar monorepo + design — done
+- [x] Monorepo `masar/` (client, server, shared, docs) with both histories; old repos kept as backups
+- [x] Server kebab-case files and folders; client converted to strict TypeScript, feature-based
+- [x] Design system "Waybill" (light + dark, RTL, AA contrast, Readex Pro): buttons, fields, date ranges, tables that become cards on phones, modals, drawers, toasts, confirm dialogs, badges, stamps, empty states, skeletons, command search (Ctrl/⌘ K)
+- [x] Every screen redesigned for every role; no `alert` / `prompt` / `confirm` left
+- [x] Landing page `/welcome` with plans (no prices), request-access form (honeypot) and a live-demo section (button appears when `VITE_DEMO_URL` is set)
+- [x] Route-level code splitting; exceljs only loads on export
+- [x] Verified: 144 server tests, typecheck, lint, build, 10 headless Chrome UI flows, 160 screenshots (desktop + mobile, light + dark)
 
 ## Phase 4 — Deploy prep
 - Decision: same-site subdomains (e.g. app.example.com + api.example.com) so cookies stay SameSite=Strict
