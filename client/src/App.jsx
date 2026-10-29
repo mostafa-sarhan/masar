@@ -53,7 +53,7 @@ function App() {
         <Route path="/archive" element={<Archive />} />
         <Route path="/reports" element={adminOnly(<Reports />)} />
         <Route path="/couriers" element={adminOnly(<Couriers />)} />
-        <Route path="/import" element={<ImportOrders />} />
+        <Route path="/import" element={adminOnly(<ImportOrders />)} />
         {/* Old report pages now live under Reports */}
         <Route path="/reportdelivery" element={<Navigate to="/reports?tab=couriers" replace />} />
         <Route path="/member" element={adminOnly(<Member />)} />

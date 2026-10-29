@@ -24,13 +24,13 @@ export default function Right() {
       <NavLink to="/archive" className="bg-white w-[85%] text-3xl p-2 rounded">
         الأرشيف
       </NavLink>
-      <NavLink to="/import" className="bg-white w-[85%] text-3xl p-2 rounded">
-        استيراد Excel
-      </NavLink>
 
       {/* العناصر الخاصة بالأدمن فقط */}
       {isAdmin(user?.role) && (
         <>
+          <NavLink to="/import" className="bg-white w-[85%] text-3xl p-2 rounded">
+            استيراد Excel
+          </NavLink>
           <NavLink to="/reports" className="bg-white w-[85%] text-3xl p-2 rounded">
             التقارير
           </NavLink>
