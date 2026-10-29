@@ -1,160 +1,129 @@
-import type { FeeValues } from "./FeeInputs";
-import type { Order } from "@/lib/types";
-import Money from "@/components/ui/Money";
 import { useState } from "react";
+import { FileDown, ReceiptText } from "lucide-react";
 import { exportOrders } from "@/features/orders/api/orders-api";
-import { errorMessage } from "@/lib/errors";
-import { useSummaryReport } from "@/features/reports/hooks/use-summary-report";
 import { usePagedOrders } from "@/features/orders/hooks/use-paged-orders";
+import { orderColumns } from "@/features/orders/components/order-columns";
+import { useSummaryReport } from "../hooks/use-summary-report";
+import FeeInputs, { type FeeValues } from "./FeeInputs";
+import { MoneyTiles } from "./MoneyTiles";
+import { downloadReport } from "../lib/excel";
 import CourierSelect from "@/features/couriers/components/CourierSelect";
 import MerchantSelect from "@/features/merchants/components/MerchantSelect";
-import FeeInputs from "./FeeInputs";
+import { Panel } from "@/components/ui/Panel";
+import { DataTable } from "@/components/ui/DataTable";
+import { DateRange, type Range } from "@/components/ui/DateRange";
+import { Select } from "@/components/ui/Field";
+import { Button } from "@/components/ui/Button";
 import Pagination from "@/components/ui/Pagination";
-import { downloadReport } from "@/features/reports/lib/excel";
+import Money from "@/components/ui/Money";
+import { useFeedback } from "@/components/ui/feedback-context";
+import { useDebounced } from "@/lib/use-debounced";
 import { ORDER_STATUSES, statusLabel } from "@/lib/order-status";
+import { errorMessage } from "@/lib/errors";
+import type { Order } from "@/lib/types";
 
 const PAGE_SIZE = 25;
 
-// Accounts statement by courier / status / company / dates. Totals come from the server;
-// the table is paginated.
-export default function Account() {
-  const [filters, setFilters] = useState({ courier: "", status: "", merchant: "", from: "", to: "" });
+// Detailed statement by courier, status, merchant and period. Totals come from the server.
+export default function StatementReport() {
+  const { toast } = useFeedback();
+  const [courier, setCourier] = useState("");
+  const [status, setStatus] = useState("");
+  const [merchant, setMerchant] = useState("");
+  const [range, setRange] = useState<Range>({ from: "", to: "" });
+  const [fees, setFees] = useState<FeeValues>({ courierFee: "", companyFee: "" });
   const [page, setPage] = useState(1);
-  const [feeInput, setFeeInput] = useState<FeeValues>({ courierFee: "", companyFee: "" });
-  const [fees, setFees] = useState<FeeValues>(feeInput);
-  const setFilter = (name: keyof typeof filters) => (value: string) => {
-    setFilters((f) => ({ ...f, [name]: value }));
+  const debouncedFees = useDebounced(fees);
+  const query = { archived: "all", courier, status, merchant, ...range };
+  const { report, fees: used } = useSummaryReport({ ...query, ...debouncedFees });
+  const { items, pages, loading } = usePagedOrders({ ...query, page, limit: PAGE_SIZE });
+  const commission = (o: Order) => (o.status === "delivered" ? (fees.courierFee !== "" ? Number(fees.courierFee) : o.fees?.courier ?? 0) : 0);
+
+  const set = <T,>(setter: (v: T) => void) => (v: T) => {
+    setter(v);
     setPage(1);
   };
 
-  const query = { archived: "all", ...filters };
-  const { report, fees: usedFees } = useSummaryReport({ ...query, ...fees });
-  const { items } = usePagedOrders({ ...query, page, limit: PAGE_SIZE });
-  const pages = report ? Math.ceil(report.total.count / PAGE_SIZE) : 0;
-  const commission = (o: Order) => (o.status === "delivered" ? usedFees?.courier ?? 0 : 0);
-
-  const saveReport = async () => {
-    if (!report || !usedFees) return;
-    const money = report.money;
+  const exportExcel = async () => {
+    if (!report) return;
     try {
       const { data, meta } = await exportOrders(query);
-      if (meta.truncated) alert(`الملف يحتوي على أول ${data.length} من ${meta.total} أوردر`);
+      if (meta.truncated) toast(`الملف يحتوي على أول ${data.length} من ${meta.total} شحنة`, "info");
+      const m = report.money;
       await downloadReport({
         fileName: "كشف_الحساب",
         sheetName: "كشف الحساب",
         summary: [
-          ["تاريخ البداية:", filters.from, "", "", "", "الإجمالي الكلي:", report.total.amount],
-          ["تاريخ النهاية:", filters.to, "", "", "", "الإجمالي المسلّم:", money.deliveredTotal],
-          ["إجمالي الأوردرات:", report.total.count, "", "", "", "العمولة:", money.courierCommission],
-          ["", "", "", "", "", "المتبقي بعد العمولة:", money.afterCourier],
-          ["", "", "", "", "", "ربح الشركة:", money.companyCommission],
-          ["", "", "", "", "", "فلوس التاجر:", money.merchantNet],
-          ...ORDER_STATUSES.map((s) => [`${statusLabel(s)}:`, report.byStatus[s]?.count ?? 0]),
+          ["من", range.from || "البداية", "", "إلى", range.to || "اليوم"],
+          ["إجمالي المبالغ", report.total.amount, "", "تم تسليمه", m.deliveredTotal],
+          ["عمولة المندوب", m.courierCommission, "", "بعد عمولة المندوب", m.afterCourier],
+          ["عمولة الشركة", m.companyCommission, "", "صافي التاجر", m.merchantNet],
         ],
         columns: [
-          { header: "رقم الشحنة", value: (o) => o.barcode },
-          { header: "اسم العميل", value: (o) => o.fullName },
-          { header: "رقم العميل", value: (o) => o.phone },
+          { header: "الباركود", value: (o) => o.barcode },
+          { header: "العميل", value: (o) => o.fullName },
+          { header: "الهاتف", value: (o) => o.phone },
           { header: "العنوان", value: (o) => o.address },
-          { header: "قيمة الطلب", value: (o) => o.cost },
-          { header: "حالة الشحنة", value: (o) => statusLabel(o.status) },
-          { header: "المندوب", value: (o) => o.courier?.name || "-" },
-          { header: "الشركة", value: (o) => o.merchant?.name || "-" },
-          { header: "العمولة", value: commission },
+          { header: "المبلغ", value: (o) => o.cost },
+          { header: "الحالة", value: (o) => statusLabel(o.status) },
+          { header: "المندوب", value: (o) => o.courier?.name ?? "" },
+          { header: "التاجر", value: (o) => o.merchant?.name ?? "" },
+          { header: "عمولة المندوب", value: commission },
         ],
         rows: data,
       });
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Filters */}
-      <div className="flex gap-4 flex-wrap mb-4">
-        <CourierSelect value={filters.courier} onChange={setFilter("courier")} placeholder="اختر مندوب" className="border p-2 rounded" />
-
-        <select className="border p-2 rounded" value={filters.status} onChange={(e) => setFilter("status")(e.target.value)}>
-          <option value="">اختر الحالة</option>
-          {ORDER_STATUSES.map((s) => (
-            <option key={s} value={s}>{statusLabel(s)}</option>
-          ))}
-        </select>
-
-        <MerchantSelect value={filters.merchant} onChange={setFilter("merchant")} className="border p-1 rounded" />
-
-        <div>
-          <span> من :</span>
-          <input type="date" className="border p-2 rounded" value={filters.from} onChange={(e) => setFilter("from")(e.target.value)} />
+    <div className="space-y-5">
+      <Panel bodyClassName="space-y-3">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <CourierSelect value={courier} onChange={set(setCourier)} aria-label="المندوب" />
+          <Select value={status} onChange={(e) => set(setStatus)(e.target.value)} aria-label="الحالة">
+            <option value="">كل الحالات</option>
+            {ORDER_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {statusLabel(s)}
+              </option>
+            ))}
+          </Select>
+          <MerchantSelect value={merchant} onChange={set(setMerchant)} aria-label="التاجر" />
         </div>
-        <div>
-          <span>الى:</span>
-          <input type="date" className="border p-2 rounded" value={filters.to} onChange={(e) => setFilter("to")(e.target.value)} />
+        <div className="flex flex-wrap items-center gap-3">
+          <DateRange value={range} onChange={set(setRange)} />
+          <FeeInputs value={fees} onChange={setFees} defaults={used} />
+          <Button variant="secondary" className="ms-auto" icon={<FileDown className="size-4" />} onClick={exportExcel} disabled={!report}>
+            تصدير Excel
+          </Button>
         </div>
+      </Panel>
 
-        <FeeInputs value={feeInput} onChange={setFeeInput} defaults={usedFees} onApply={() => setFees(feeInput)} />
-      </div>
-
-      {/* Summary */}
       {report && (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          {ORDER_STATUSES.map((s) => (
-            <div key={s} className="p-4 rounded-lg text-center border">
-              <p className="text-sm text-gray-500">{statusLabel(s)}</p>
-              <h3 className="text-xl font-bold">{report.byStatus[s]?.count ?? 0}</h3>
-            </div>
-          ))}
-          {[
-            ["الإجمالي الكلي", report.total.amount],
-            ["الإجمالي المسلّم", report.money.deliveredTotal],
-            ["عمولة المندوب", report.money.courierCommission],
-            ["المتبقي بعد العمولة", report.money.afterCourier],
-            ["ربح الشركة", report.money.companyCommission],
-            ["فلوس التاجر", report.money.merchantNet],
-          ].map(([label, value]) => (
-            <div key={label} className="p-4 rounded-lg text-center border">
-              <p className="text-sm text-gray-500">{label}</p>
-              <h3 className="text-xl font-bold"><Money value={value} /></h3>
-            </div>
-          ))}
-        </div>
+        <MoneyTiles
+          items={[
+            { label: "إجمالي المبالغ", value: report.total.amount, hint: `${report.total.count} شحنة` },
+            { label: "تم تسليمه", value: report.money.deliveredTotal },
+            { label: "عمولة المندوب", value: report.money.courierCommission },
+            { label: "عمولة الشركة", value: report.money.companyCommission },
+            { label: "صافي التاجر", value: report.money.merchantNet, strong: true },
+          ]}
+        />
       )}
 
-      {/* Table (paginated) */}
-      <div className="rounded-lg shadow overflow-x-auto">
-        <table className="w-full text-sm text-center border">
-          <thead>
-            <tr>
-              {["رقم الشحنة", "اسم العميل", "رقم العميل", "العنوان", "قيمة الطلب", "حالة الشحنة", "المندوب", "الشركة", "العمولة"].map((h) => (
-                <th key={h} className="p-2 border">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((order) => (
-              <tr key={order._id} className="border-b">
-                <td className="p-2">{order.barcode}</td>
-                <td className="p-2">{order.fullName}</td>
-                <td className="p-2">{order.phone}</td>
-                <td className="p-2">{order.address}</td>
-                <td className="p-2"><Money value={order.cost} /></td>
-                <td className="p-2">{statusLabel(order.status)}</td>
-                <td className="p-2">{order.courier?.name || "-"}</td>
-                <td className="p-2">{order.merchant?.name || "-"}</td>
-                <td className="p-2 text-green-600 font-bold"><Money value={commission(order)} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <Pagination page={page} pages={pages} onChange={setPage} />
-
-      <div className="flex gap-4 flex-wrap">
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg" onClick={saveReport}>
-          حفظ كشف الحساب
-        </button>
-      </div>
+      <Panel>
+        <DataTable
+          caption="كشف الحساب"
+          loading={loading}
+          rows={items}
+          rowKey={(o) => o._id}
+          columns={[...orderColumns(["barcode", "customer", "address", "status", "courier", "merchant", "cost"]), { key: "commission", header: "عمولة المندوب", align: "end", cell: (o) => <Money value={commission(o)} /> }]}
+          empty={{ icon: <ReceiptText />, title: "لا توجد شحنات تطابق الفلاتر" }}
+        />
+        <Pagination page={page} pages={pages} onChange={setPage} />
+      </Panel>
     </div>
   );
 }

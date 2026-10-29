@@ -1,101 +1,99 @@
-import type { FeeValues } from "./FeeInputs";
-import Money from "@/components/ui/Money";
 import { useState } from "react";
+import { FileDown } from "lucide-react";
 import { exportOrders } from "@/features/orders/api/orders-api";
-import { errorMessage } from "@/lib/errors";
-import { useSummaryReport } from "@/features/reports/hooks/use-summary-report";
+import { useSummaryReport } from "../hooks/use-summary-report";
+import FeeInputs, { type FeeValues } from "./FeeInputs";
+import { MoneyTiles } from "./MoneyTiles";
+import { downloadReport } from "../lib/excel";
 import MerchantSelect from "@/features/merchants/components/MerchantSelect";
-import FeeInputs from "./FeeInputs";
-import { downloadReport } from "@/features/reports/lib/excel";
+import { Panel } from "@/components/ui/Panel";
+import { DateRange, type Range } from "@/components/ui/DateRange";
+import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Feedback";
+import Money from "@/components/ui/Money";
+import { useFeedback } from "@/components/ui/feedback-context";
+import { useDebounced } from "@/lib/use-debounced";
 import { ORDER_STATUSES, statusLabel } from "@/lib/order-status";
+import { errorMessage } from "@/lib/errors";
 
-// Statement for one company (merchant) over a date range. All amounts come from the server.
-export default function Company() {
+// Totals by status and the settlement for one merchant (or all) over a period.
+export default function SummaryReport() {
+  const { toast } = useFeedback();
   const [merchant, setMerchant] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [feeInput, setFeeInput] = useState<FeeValues>({ courierFee: "", companyFee: "" });
-  const [fees, setFees] = useState<FeeValues>(feeInput); // applied on blur
+  const [range, setRange] = useState<Range>({ from: "", to: "" });
+  const [fees, setFees] = useState<FeeValues>({ courierFee: "", companyFee: "" });
+  const debouncedFees = useDebounced(fees);
+  const filters = { archived: "all", merchant, ...range };
+  const { report, fees: used, loading } = useSummaryReport({ ...filters, ...debouncedFees });
 
-  const filters = { archived: "all", merchant, from, to };
-  const { report, fees: usedFees } = useSummaryReport({ ...filters, ...fees });
-
-  const saveReport = async () => {
-    if (!report || !usedFees) return;
-    const money = report.money;
+  const exportExcel = async () => {
+    if (!report || !used) return;
     try {
       const { data, meta } = await exportOrders(filters);
-      if (meta.truncated) alert(`الملف يحتوي على أول ${data.length} من ${meta.total} أوردر`);
-      const merchantName = merchant ? data[0]?.merchant?.name : null;
+      if (meta.truncated) toast(`الملف يحتوي على أول ${data.length} من ${meta.total} شحنة`, "info");
+      const m = report.money;
       await downloadReport({
-        fileName: `كشف_حساب_${merchantName || "جميع"}`,
+        fileName: `كشف_حساب_${merchant ? data[0]?.merchant?.name ?? "تاجر" : "كل_التجار"}`,
         sheetName: "كشف الحساب",
         summary: [
-          ["تاريخ البداية:", from, "", "", "", "المبلغ المستلم:", money.deliveredTotal],
-          ["تاريخ النهاية:", to, "", "", "", "عمولة الشركة:", money.companyCommission],
-          ["إجمالي الأوردرات:", report.total.count, "", "", "", "فلوس التاجر بعد الخصم:", money.merchantNet],
-          ["عمولة الشركة لكل أوردر:", usedFees.company],
-          ...ORDER_STATUSES.map((s) => [`${statusLabel(s)}:`, report.byStatus[s]?.count ?? 0, "المبلغ:", report.byStatus[s]?.amount ?? 0]),
+          ["من", range.from || "البداية", "", "إلى", range.to || "اليوم"],
+          ["إجمالي الشحنات", report.total.count, "", "إجمالي المبالغ", report.total.amount],
+          ["تم تسليمه", m.deliveredTotal, "", "عمولة الشركة", m.companyCommission],
+          ["صافي التاجر", m.merchantNet, "", "عمولة المندوب", m.courierCommission],
+          ...ORDER_STATUSES.map((s) => [statusLabel(s), report.byStatus[s]?.count ?? 0, "", "المبلغ", report.byStatus[s]?.amount ?? 0]),
         ],
         columns: [
-          { header: "رقم الشحنة", value: (o) => o.barcode },
-          { header: "اسم العميل", value: (o) => o.fullName },
-          { header: "قيمة الطلب", value: (o) => o.cost },
-          { header: "حالة الشحنة", value: (o) => statusLabel(o.status) },
-          { header: "المندوب", value: (o) => o.courier?.name || "-" },
-          { header: "الشركة", value: (o) => o.merchant?.name || "-" },
+          { header: "الباركود", value: (o) => o.barcode },
+          { header: "العميل", value: (o) => o.fullName },
+          { header: "المبلغ", value: (o) => o.cost },
+          { header: "الحالة", value: (o) => statusLabel(o.status) },
+          { header: "المندوب", value: (o) => o.courier?.name ?? "" },
+          { header: "التاجر", value: (o) => o.merchant?.name ?? "" },
         ],
         rows: data,
       });
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Filters */}
-      <div className="flex gap-4 flex-wrap mb-4">
-        <MerchantSelect value={merchant} onChange={setMerchant} className="border p-2 rounded" />
-        <div>
-          <span> من :</span>
-          <input type="date" className="border p-2 rounded" value={from} onChange={(e) => setFrom(e.target.value)} />
-        </div>
-        <div>
-          <span>الى: </span>
-          <input type="date" className="border p-2 rounded" value={to} onChange={(e) => setTo(e.target.value)} />
-        </div>
-        <FeeInputs value={feeInput} onChange={setFeeInput} defaults={usedFees} onApply={() => setFees(feeInput)} showCourier={false} />
-      </div>
+    <div className="space-y-5">
+      <Panel bodyClassName="flex flex-wrap items-center gap-3">
+        <MerchantSelect value={merchant} onChange={setMerchant} className="w-48" aria-label="التاجر" />
+        <DateRange value={range} onChange={setRange} />
+        <FeeInputs value={fees} onChange={setFees} defaults={used} />
+        <Button variant="secondary" className="ms-auto" icon={<FileDown className="size-4" />} onClick={exportExcel} disabled={!report}>
+          تصدير Excel
+        </Button>
+      </Panel>
 
-      {/* Summary */}
-      {report && (
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-          {ORDER_STATUSES.map((s) => (
-            <div key={s} className="p-4 rounded-lg text-center border">
-              <p className="text-sm text-gray-500">{statusLabel(s)}</p>
-              <h3 className="text-xl font-bold">{report.byStatus[s]?.count ?? 0}</h3>
-              <h3 className="text-xl font-bold"><Money value={report.byStatus[s]?.amount ?? 0} /></h3>
-            </div>
-          ))}
-          {[
-            ["المبلغ المستلم", report.money.deliveredTotal],
-            ["عمولة الشركة", report.money.companyCommission],
-            ["فلوس التاجر بعد الخصم", report.money.merchantNet],
-          ].map(([label, value]) => (
-            <div key={label} className="p-4 rounded-lg text-center border">
-              <p className="text-sm text-gray-500">{label}</p>
-              <h3 className="text-xl font-bold"><Money value={value} /></h3>
-            </div>
-          ))}
-        </div>
+      {loading || !report ? (
+        <Skeleton className="h-40" />
+      ) : (
+        <>
+          <MoneyTiles
+            items={[
+              { label: "إجمالي ما سُلّم", value: report.money.deliveredTotal },
+              { label: "عمولة المندوب", value: report.money.courierCommission, hint: "تكلفة داخلية" },
+              { label: "بعد عمولة المندوب", value: report.money.afterCourier },
+              { label: "عمولة الشركة", value: report.money.companyCommission },
+              { label: "صافي مستحقات التاجر", value: report.money.merchantNet, strong: true },
+            ]}
+          />
+          <Panel title="حسب الحالة">
+            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              {ORDER_STATUSES.map((s) => (
+                <div key={s}>
+                  <dt className="text-xs text-ink-2">{statusLabel(s)}</dt>
+                  <dd className="num text-xl font-semibold text-ink">{report.byStatus[s]?.count ?? 0}</dd>
+                  <dd className="text-xs text-ink-3"><Money value={report.byStatus[s]?.amount ?? 0} /></dd>
+                </div>
+              ))}
+            </dl>
+          </Panel>
+        </>
       )}
-
-      <div className="flex gap-4 flex-wrap">
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg" onClick={saveReport}>
-          حفظ كشف الحساب
-        </button>
-      </div>
     </div>
   );
 }

@@ -1,61 +1,65 @@
-import type { OrderStatus } from "@masar/shared";
-import type { GroupedReportRow, ReportMeta } from "@/lib/types";
-import type { FeeValues } from "./FeeInputs";
 import { useEffect, useState } from "react";
+import { Bike } from "lucide-react";
 import { getCourierReport } from "@/lib/resources-api";
-import { errorMessage } from "@/lib/errors";
-import FeeInputs from "./FeeInputs";
+import FeeInputs, { type FeeValues } from "./FeeInputs";
+import { Panel } from "@/components/ui/Panel";
+import { DataTable } from "@/components/ui/DataTable";
+import { DateRange, type Range } from "@/components/ui/DateRange";
 import Money from "@/components/ui/Money";
-import { statusLabel } from "@/lib/order-status";
+import { useFeedback } from "@/components/ui/feedback-context";
+import { useDebounced } from "@/lib/use-debounced";
+import { errorMessage } from "@/lib/errors";
+import type { GroupedReportRow, ReportMeta } from "@/lib/types";
 
-const COLUMNS: OrderStatus[] = ["delivered", "returned", "refused", "pending", "with_courier"];
+type Row = GroupedReportRow<"courier">;
 
-// Results and commission per courier (the courier fee is internal: shown here only).
+// Results and commission per courier (the courier fee is an internal cost, shown only here).
 export default function CourierReport() {
-  const [rows, setRows] = useState<GroupedReportRow<"courier">[]>([]);
-  const [feeInput, setFeeInput] = useState<FeeValues>({ courierFee: "", companyFee: "" });
-  const [fees, setFees] = useState<FeeValues>(feeInput);
-  const [range, setRange] = useState({ from: "", to: "" });
+  const { toast } = useFeedback();
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [range, setRange] = useState<Range>({ from: "", to: "" });
+  const [fees, setFees] = useState<FeeValues>({ courierFee: "", companyFee: "" });
   const [defaults, setDefaults] = useState<ReportMeta["fees"] | null>(null);
+  const debouncedFees = useDebounced(fees);
 
   useEffect(() => {
-    getCourierReport({ archived: "all", ...range, ...fees })
+    let cancelled = false;
+    getCourierReport({ archived: "all", ...range, ...debouncedFees })
       .then(({ data, meta }) => {
+        if (cancelled) return;
         setRows(data.filter((r) => r.courier));
         setDefaults(meta.fees);
       })
-      .catch((err) => alert(errorMessage(err)));
-  }, [fees, range]);
+      .catch((err) => toast(errorMessage(err), "danger"));
+    return () => {
+      cancelled = true;
+    };
+  }, [range, debouncedFees, toast]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-4 flex-wrap items-center">
-        <label>من <input type="date" className="border p-2 rounded" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></label>
-        <label>إلى <input type="date" className="border p-2 rounded" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></label>
-        <FeeInputs value={feeInput} onChange={setFeeInput} defaults={defaults} onApply={() => setFees(feeInput)} showCompany={false} />
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-gray-400 text-center">
-          <thead>
-            <tr>
-              <th className="border p-2">المندوب</th>
-              {COLUMNS.map((s) => <th key={s} className="border p-2">{statusLabel(s)}</th>)}
-              <th className="border p-2">نقدية المسلّم</th>
-              <th className="border p-2">عمولة المندوب</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => r.courier && (
-              <tr key={r.courier._id}>
-                <td className="border p-2">{r.courier.name}</td>
-                {COLUMNS.map((s) => <td key={s} className="border p-2">{r.byStatus[s]?.count ?? 0}</td>)}
-                <td className="border p-2"><Money value={r.money.deliveredTotal} /></td>
-                <td className="border p-2 font-bold"><Money value={r.money.courierCommission} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="space-y-5">
+      <Panel bodyClassName="flex flex-wrap items-center gap-3">
+        <DateRange value={range} onChange={setRange} />
+        <FeeInputs value={fees} onChange={setFees} defaults={defaults} showCompany={false} />
+      </Panel>
+      <Panel>
+        <DataTable
+          caption="تقرير المناديب"
+          loading={!rows}
+          rows={rows ?? []}
+          rowKey={(r) => r.courier!._id}
+          columns={[
+            { key: "name", header: "المندوب", primary: true, cell: (r) => <span className="font-medium text-ink">{r.courier!.name}</span> },
+            { key: "delivered", header: "تم التسليم", cell: (r) => <span className="num text-ok">{r.byStatus.delivered?.count ?? 0}</span> },
+            { key: "returned", header: "مرتجع", cell: (r) => <span className="num text-late">{r.byStatus.returned?.count ?? 0}</span> },
+            { key: "refused", header: "مرفوض", cell: (r) => <span className="num text-stamp">{r.byStatus.refused?.count ?? 0}</span> },
+            { key: "open", header: "معه الآن", cell: (r) => <span className="num text-ink-2">{r.byStatus.with_courier?.count ?? 0}</span> },
+            { key: "cash", header: "نقدية المسلّم", align: "end", cell: (r) => <Money value={r.money.deliveredTotal} /> },
+            { key: "commission", header: "عمولة المندوب", align: "end", cell: (r) => <b className="text-ink"><Money value={r.money.courierCommission} /></b> },
+          ]}
+          empty={{ icon: <Bike />, title: "لا توجد بيانات في هذه الفترة" }}
+        />
+      </Panel>
     </div>
   );
 }
