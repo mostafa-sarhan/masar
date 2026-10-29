@@ -5,6 +5,7 @@ import { formatDate } from "./utils/dataUtils";
 import Pagination from "./Pagination";
 import { ROLE_LABELS } from "./utils/roles";
 import { useAuth } from "./AuthContext";
+import { PASSWORD_HINT } from "./ChangePasswordForm";
 
 const ACTION_LABELS = {
   CREATE_USER: "إضافة موظف",
@@ -20,7 +21,6 @@ const ACTION_LABELS = {
   REVOKE_API_KEY: "إلغاء مفتاح API",
 };
 const ENTITY_LABELS = { user: "موظف", order: "شحنة", merchant: "تاجر", courier: "مندوب" };
-const PASSWORD_HINT = "10 أحرف على الأقل، حروف وأرقام";
 
 const describeChanges = (changes) =>
   Object.entries(changes || {})
@@ -69,7 +69,7 @@ export default function Employee() {
 
   const handleAdd = async () => {
     if (!email || !password) return alert("املأ كل الحقول");
-    if (await run(() => createUser({ email, password, role: "employee" }), "تمت الإضافة ✅")) {
+    if (await run(() => createUser({ email, password, role: "employee" }), "تمت الإضافة ✅ (باسورد مؤقت: سيطلب من الموظف تغييره عند أول دخول)")) {
       setEmail("");
       setPassword("");
     }
@@ -77,7 +77,7 @@ export default function Employee() {
 
   const handleChangePassword = async () => {
     if (!editId || !newPassword) return alert("اختر الموظف وأدخل الباسورد");
-    if (await run(() => changePassword(editId, newPassword), "تم تغيير الباسورد ✅ (تم تسجيل خروج الموظف من كل الأجهزة)")) {
+    if (await run(() => changePassword(editId, newPassword), "تم تغيير الباسورد ✅ (باسورد مؤقت: سيطلب من الموظف تغييره عند الدخول)")) {
       setEditId("");
       setNewPassword("");
     }

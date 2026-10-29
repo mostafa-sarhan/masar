@@ -4,6 +4,8 @@ export const platformLogin = (email, password) => api("/platform/auth/login", { 
 export const platformLogout = () => api("/platform/auth/logout", { method: "POST" });
 export const platformMe = () => api("/platform/auth/me");
 export const platformRefresh = () => api("/platform/auth/refresh", { method: "POST" });
+export const platformChangePassword = (currentPassword, newPassword) =>
+  api("/platform/auth/change-password", { method: "POST", body: { currentPassword, newPassword } });
 
 export const getTenants = (params) => request("/platform/tenants", { params });
 // { tenant, owner, initialPassword } — the password is only returned here

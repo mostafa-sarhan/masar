@@ -50,9 +50,8 @@ export default function AddDelivery() {
     if (scannedOrders.length === 0) return alert("لا توجد أوردرات");
 
     try {
-      const result = await bulkAssign(scannedOrders.map((o) => o._id), courier);
-      if (result.conflicts) alert(`تم تحديث ${result.updated} وتعذر تحديث ${result.conflicts} (تم تعديلها من مستخدم آخر)`);
-      else alert("تم تحديث المندوب لجميع المنتجات");
+      await bulkAssign(scannedOrders.map((o) => o._id), courier);
+      alert("تم تحديث المندوب لجميع المنتجات");
       setScannedOrders((prev) => prev.map((o) => ({ ...o, status: "with_courier", courier: { _id: courier, name: courierName } })));
       setAssigned(true);
     } catch (err) {

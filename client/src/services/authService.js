@@ -4,3 +4,5 @@ export const login = (email, password) => api("/auth/login", { method: "POST", b
 export const logout = () => api("/auth/logout", { method: "POST" });
 export const me = () => api("/auth/me");
 export const refresh = () => api("/auth/refresh", { method: "POST" });
+export const changeOwnPassword = (currentPassword, newPassword) =>
+  api("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } });

@@ -66,12 +66,12 @@ export default function Alldelivery() {
 
     try {
       setLoading(true);
-      const result = await bulkStatus(updates);
+      await bulkStatus(updates);
       const byId = new Map(updates.map((u) => [u.id, u.status]));
       const saved = orders.map((o) => (byId.has(o._id) ? { ...o, status: byId.get(o._id), nextStatus: undefined } : o));
       setOrders(saved);
       await loadSettlement(saved);
-      alert(result.conflicts ? `تم حفظ ${result.updated}، وتعذر حفظ ${result.conflicts} (تم تعديلها من مستخدم آخر)` : "تم حفظ التعديلات بنجاح ✅");
+      alert("تم حفظ التعديلات بنجاح ✅");
     } catch (err) {
       alert(errorMessage(err)); // validation failed: nothing was saved
     } finally {

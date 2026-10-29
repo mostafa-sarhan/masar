@@ -3,6 +3,8 @@ import { platformLogin, platformLogout, platformMe, platformRefresh } from "../s
 import { setSessionLostHandler } from "../services/api";
 import { errorMessage } from "../services/errors";
 import PlatformConsole from "./PlatformConsole";
+import ChangePasswordForm from "../ChangePasswordForm";
+import { platformChangePassword } from "../services/platformApi";
 
 // Platform-admin area: its own login and session, never inside a tenant.
 export default function PlatformApp() {
@@ -20,6 +22,16 @@ export default function PlatformApp() {
 
   if (checking) return <div className="w-full h-screen flex justify-center items-center bg-main text-white text-xl">جاري التحميل...</div>;
   if (!admin) return <PlatformLogin onLogin={setAdmin} />;
+  if (admin.mustChangePassword) {
+    return (
+      <ChangePasswordForm
+        title="غيّر الباسورد المؤقت"
+        note="باسورد مُولّد للاستخدام مرة واحدة."
+        onSubmit={async (current, next) => (await platformChangePassword(current, next)).admin}
+        onDone={setAdmin}
+      />
+    );
+  }
   return (
     <PlatformConsole
       admin={admin}

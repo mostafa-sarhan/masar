@@ -19,12 +19,15 @@ const MESSAGES = {
   TRIAL_EXPIRED: "انتهت الفترة التجريبية، تواصل معنا للاشتراك",
   PLAN_LIMIT_REACHED: "تم الوصول إلى حد الباقة الحالية",
   RATE_LIMITED: "محاولات كثيرة، حاول بعد قليل",
+  PASSWORD_CHANGE_REQUIRED: "يجب تغيير الباسورد أولًا",
   PAYLOAD_TOO_LARGE: "البيانات كبيرة جدًا",
   INTERNAL_ERROR: "حدث خطأ في السيرفر",
 };
 
 export function errorMessage(err) {
   if (!err?.code) return err?.message === "Failed to fetch" ? "تعذر الاتصال بالسيرفر" : MESSAGES.INTERNAL_ERROR;
+  // The server's 429 message is already Arabic and includes the wait time.
+  if (err.code === "RATE_LIMITED" && err.message) return err.message;
   const base = MESSAGES[err.code] || MESSAGES.INTERNAL_ERROR;
   // Bulk actions list the orders that couldn't be changed.
   if (Array.isArray(err.details) && err.details[0]?.barcode) {

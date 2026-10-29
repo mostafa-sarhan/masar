@@ -38,12 +38,15 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  // After a successful password change the server issues fresh cookies; update who we are.
+  const passwordChanged = useCallback((nextUser) => setUser(nextUser), []);
+
   const logout = useCallback(async () => {
     await apiLogout().catch(() => {});
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, tenant, checking, sessionError, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, tenant, checking, sessionError, login, logout, passwordChanged }}>{children}</AuthContext.Provider>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
