@@ -1,3 +1,4 @@
+import Money from "./Money";
 import React, { useState } from "react";
 import { exportOrders } from "./services/ordersApi";
 import { errorMessage } from "./services/errors";
@@ -73,7 +74,7 @@ export default function Company() {
             <div key={s} className="p-4 rounded-lg text-center border">
               <p className="text-sm text-gray-500">{statusLabel(s)}</p>
               <h3 className="text-xl font-bold">{report.byStatus[s]?.count ?? 0}</h3>
-              <h3 className="text-xl font-bold">{report.byStatus[s]?.amount ?? 0} جنيه</h3>
+              <h3 className="text-xl font-bold"><Money value={report.byStatus[s]?.amount ?? 0} /></h3>
             </div>
           ))}
           {[
@@ -83,7 +84,7 @@ export default function Company() {
           ].map(([label, value]) => (
             <div key={label} className="p-4 rounded-lg text-center border">
               <p className="text-sm text-gray-500">{label}</p>
-              <h3 className="text-xl font-bold">{value} جنيه</h3>
+              <h3 className="text-xl font-bold"><Money value={value} /></h3>
             </div>
           ))}
         </div>

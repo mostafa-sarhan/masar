@@ -1,5 +1,6 @@
+import Money from "./Money";
 import React, { useEffect, useState } from "react";
-import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, getMerchantReport } from "./services/resourcesApi";
+import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, getMerchantReport, updateMerchant } from "./services/resourcesApi";
 import { errorMessage } from "./services/errors";
 import FeeInputs from "./FeeInputs";
 
@@ -54,6 +55,18 @@ export default function Member() {
     try {
       const { apiKey } = await rotateMerchantKey(m._id);
       setNewKey({ name: m.name, apiKey });
+      reload();
+    } catch (err) {
+      alert(errorMessage(err));
+    }
+  };
+
+  // Empty = use the company's default fee (Settings).
+  const handleCompanyFee = async (m) => {
+    const value = window.prompt(`عمولة الشركة لـ ${m.name} لكل أوردر مسلّم (اتركها فارغة لاستخدام الافتراضي)`, m.companyFee ?? "");
+    if (value === null) return;
+    try {
+      await updateMerchant(m._id, { companyFee: value.trim() === "" ? null : Number(value) });
       reload();
     } catch (err) {
       alert(errorMessage(err));
@@ -135,9 +148,9 @@ export default function Member() {
                 <tr key={merchant._id} className="border-b hover:bg-gray-800">
                   <td className="p-2 font-bold">{merchant.name}</td>
                   <td className="p-2">{money.deliveredCount}</td>
-                  <td className="p-2">{money.deliveredTotal} جنيه</td>
-                  <td className="p-2 text-yellow-400">{money.companyCommission} جنيه</td>
-                  <td className="p-2 text-green-500 font-bold">{money.merchantNet} جنيه</td>
+                  <td className="p-2"><Money value={money.deliveredTotal} /></td>
+                  <td className="p-2 text-yellow-400"><Money value={money.companyCommission} /></td>
+                  <td className="p-2 text-green-500 font-bold"><Money value={money.merchantNet} /></td>
                 </tr>
               ))}
             </tbody>
@@ -185,6 +198,7 @@ export default function Member() {
               <tr>
                 <th className="p-2 border">اسم التاجر</th>
                 <th className="p-2 border">API Key</th>
+                <th className="p-2 border">عمولة الشركة</th>
                 <th className="p-2 border">تاريخ الإنشاء</th>
                 <th className="p-2 border">المفتاح</th>
               </tr>
@@ -197,6 +211,9 @@ export default function Member() {
                     <td className="p-2 text-yellow-400" dir="ltr">
                       {m.hasActiveKey ? `${m.apiKeyPrefix}…` : m.apiKeyRevokedAt ? "ملغي" : "-"}
                     </td>
+                    <td className="p-2">
+                      <button className="underline" onClick={() => handleCompanyFee(m)}>{m.companyFee ?? "الافتراضي"}</button>
+                    </td>
                     <td className="p-2">{m.createdAt ? new Date(m.createdAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" }) : "-"}</td>
                     <td className="p-2 space-x-2 space-x-reverse">
                       <button className="px-2 py-1 bg-blue-600 rounded" onClick={() => handleRotate(m)}>{m.hasActiveKey ? "تغيير" : "إنشاء"}</button>
@@ -205,7 +222,7 @@ export default function Member() {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan="4" className="p-4">لا يوجد تجار</td></tr>
+                <tr><td colSpan="5" className="p-4">لا يوجد تجار</td></tr>
               )}
             </tbody>
           </table>

@@ -1,19 +1,14 @@
-// utils/dateUtils.js
+import { displayTimezone } from "./locale";
 
-/**
- * تحويل تاريخ بصيغة ISO أو قديمة (string) إلى شكل dd-mm-yyyy
- * @param {string} dateString
- * @returns {string} التاريخ بالشكل dd-mm-yyyy أو نفس القيمة لو مش قابل للتحويل
- */
+// dd-mm-yyyy in the tenant's timezone. Old non-ISO values are shown as they are.
 export function formatDate(dateString) {
   if (!dateString) return "";
-
   const date = new Date(dateString);
-  if (isNaN(date)) return dateString; // لو التاريخ قديم ومش ISO، نعرضه زي ما هو
-
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
-
-  return `${dd}-${mm}-${yyyy}`;
+  if (isNaN(date)) return dateString;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { timeZone: displayTimezone(), day: "2-digit", month: "2-digit", year: "numeric" })
+      .formatToParts(date)
+      .map((p) => [p.type, p.value])
+  );
+  return `${parts.day}-${parts.month}-${parts.year}`;
 }

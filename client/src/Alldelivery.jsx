@@ -1,3 +1,4 @@
+import Money from "./Money";
 import React, { useState } from "react";
 import CourierSelect from "./CourierSelect";
 import { OrdersHeader, OrderRow } from "./OrderRow";
@@ -98,7 +99,6 @@ export default function Alldelivery() {
               onBlur={() => loadSettlement(orders).catch((err) => alert(errorMessage(err)))}
               className="border rounded px-2 py-1 w-24"
             />
-            <span>جنيه</span>
           </>
         )}
       </div>
@@ -113,10 +113,10 @@ export default function Alldelivery() {
             <div>عدد الأوردرات: <span className="font-bold mr-2">{settlement.total.count}</span></div>
           </div>
           <div className="text-sm w-[50%]">
-            <div>إجمالي المبلغ: <span className="font-bold mr-2">{settlement.total.amount} جنيه</span></div>
-            <div>المبلغ المستحق للمندوب: <span className="font-bold mr-2">{money.courierCommission} جنيه</span></div>
-            <div>اجمالى المبلغ غير المسلّم: <span className="font-bold mr-2">{notDelivered} جنيه</span></div>
-            <div>الباقي بعد خصم المستحق: <span className="font-bold mr-2">{money.afterCourier} جنيه</span></div>
+            <div>إجمالي المبلغ: <span className="font-bold mr-2"><Money value={settlement.total.amount} /></span></div>
+            <div>المبلغ المستحق للمندوب: <span className="font-bold mr-2"><Money value={money.courierCommission} /></span></div>
+            <div>اجمالى المبلغ غير المسلّم: <span className="font-bold mr-2"><Money value={notDelivered} /></span></div>
+            <div>الباقي بعد خصم المستحق: <span className="font-bold mr-2"><Money value={money.afterCourier} /></span></div>
           </div>
         </div>
       )}

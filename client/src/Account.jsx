@@ -1,3 +1,4 @@
+import Money from "./Money";
 import React, { useState } from "react";
 import { exportOrders } from "./services/ordersApi";
 import { errorMessage } from "./services/errors";
@@ -112,7 +113,7 @@ export default function Account() {
           ].map(([label, value]) => (
             <div key={label} className="p-4 rounded-lg text-center border">
               <p className="text-sm text-gray-500">{label}</p>
-              <h3 className="text-xl font-bold">{value} جنيه</h3>
+              <h3 className="text-xl font-bold"><Money value={value} /></h3>
             </div>
           ))}
         </div>
@@ -135,11 +136,11 @@ export default function Account() {
                 <td className="p-2">{order.fullName}</td>
                 <td className="p-2">{order.phone}</td>
                 <td className="p-2">{order.address}</td>
-                <td className="p-2">{order.cost} جنيه</td>
+                <td className="p-2"><Money value={order.cost} /></td>
                 <td className="p-2">{statusLabel(order.status)}</td>
                 <td className="p-2">{order.courier?.name || "-"}</td>
                 <td className="p-2">{order.merchant?.name || "-"}</td>
-                <td className="p-2 text-green-600 font-bold">{commission(order)} جنيه</td>
+                <td className="p-2 text-green-600 font-bold"><Money value={commission(order)} /></td>
               </tr>
             ))}
           </tbody>

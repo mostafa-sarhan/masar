@@ -43,6 +43,9 @@ export default function Right() {
           <NavLink to="/employee" className="bg-white w-[85%] text-3xl p-2 rounded">
             الموظفون
           </NavLink>
+          <NavLink to="/settings" className="bg-white w-[85%] text-3xl p-2 rounded">
+            الإعدادات
+          </NavLink>
         </>
       )}
     </div>

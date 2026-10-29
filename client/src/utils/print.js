@@ -2,6 +2,7 @@ import JsBarcode from "jsbarcode";
 import { escapeHtml as esc } from "./html";
 import { formatDate } from "./dataUtils";
 import { statusLabel } from "./orderStatus";
+import { formatMoney } from "./locale";
 
 // Barcode as an SVG string, rendered in the main document so the print window needs no scripts.
 function barcodeSvg(value) {
@@ -39,7 +40,7 @@ const labelHtml = (o) => `
     <p><strong>الاسم:</strong> ${esc(o.fullName)}</p>
     <p><strong>العنوان:</strong> ${esc(o.address)}</p>
     <p><strong>رقم الهاتف:</strong> ${esc(o.phone)}</p>
-    <p><strong>التكلفة:</strong> ${esc(o.cost)} جنيه</p>
+    <p><strong>التكلفة:</strong> ${esc(formatMoney(o.cost))}</p>
   </div>`;
 
 export const printLabel = (order) => printDocument("ملصق شحنة", labelHtml(order));

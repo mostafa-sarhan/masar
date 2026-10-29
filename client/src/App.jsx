@@ -17,6 +17,7 @@ import Member from "./Member";
 import Company from "./Company";
 import Account from "./Account";
 import Employee from "./Employee";
+import Settings from "./Settings";
 import PlatformApp from "./platform/PlatformApp";
 import { ADMIN_ROLES } from "./utils/roles";
 
@@ -48,6 +49,7 @@ function App() {
         <Route path="/company" element={adminOnly(<Company />)} />
         <Route path="/accounts" element={adminOnly(<Account />)} />
         <Route path="/employee" element={adminOnly(<Employee />)} />
+        <Route path="/settings" element={adminOnly(<Settings />)} />
       </Route>
     </Routes>
   );

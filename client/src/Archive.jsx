@@ -1,3 +1,4 @@
+import Money from "./Money";
 import React, { useState } from "react";
 import { usePagedOrders } from "./hooks/usePagedOrders";
 import MerchantSelect from "./MerchantSelect";
@@ -41,7 +42,7 @@ export default function Archive() {
       {/* Summary */}
       <div className="w-full flex justify-around border rounded-lg p-2 mb-4 font-bold text-lg">
         <div>عدد الأوردرات: {result.total}</div>
-        <div>الإجمالي: {result.totalCost} جنيه</div>
+        <div>الإجمالي: <Money value={result.totalCost} /></div>
       </div>
 
       <OrdersHeader />

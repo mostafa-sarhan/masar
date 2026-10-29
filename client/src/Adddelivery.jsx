@@ -1,3 +1,4 @@
+import Money from "./Money";
 import React, { useState, useRef } from "react";
 import CourierSelect from "./CourierSelect";
 import { OrdersHeader, OrderRow } from "./OrderRow";
@@ -97,7 +98,7 @@ export default function AddDelivery() {
 
       <div className="text-start pb-4 flex gap-16">
         <div className="text-lg font-bold">عدد الشحنات: {scannedOrders.length}</div>
-        <div className="text-lg font-bold">المبلغ الكلي: {totalCost} جنيه</div>
+        <div className="text-lg font-bold">المبلغ الكلي: <Money value={totalCost} /></div>
       </div>
 
       <OrdersHeader />
