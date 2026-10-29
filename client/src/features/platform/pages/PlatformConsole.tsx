@@ -1,7 +1,8 @@
-import type { Plan, TenantStatus } from "@masar/shared";
-import type { TenantRow, AccessRequestRow, PageMeta } from "@/lib/types";
-import type { PlatformAdmin } from "@/features/platform/api/platform-api";
 import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Building2, Inbox, LogOut, Plus, ScrollText } from "lucide-react";
+import { PLAN_LIMITS, type Plan, type TenantStatus } from "@masar/shared";
+import type { TenantRow, AccessRequestRow, PageMeta } from "@/lib/types";
 import {
   getTenants,
   createTenant,
@@ -10,223 +11,339 @@ import {
   approveAccessRequest,
   rejectAccessRequest,
   getPlatformAuditLogs,
+  type PlatformAdmin,
 } from "@/features/platform/api/platform-api";
-import { errorMessage } from "@/lib/errors";
-import { formatDate } from "@/lib/format-date";
+import { Logo } from "@/components/ui/Logo";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
+import { Panel, PageHeader } from "@/components/ui/Panel";
+import { DataTable } from "@/components/ui/DataTable";
+import { Modal } from "@/components/ui/Overlay";
+import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { Badge } from "@/components/ui/Status";
 import Pagination from "@/components/ui/Pagination";
+import { useFeedback } from "@/components/ui/feedback-context";
+import { SecretReveal } from "@/components/forms/SecretReveal";
+import { errorMessage } from "@/lib/errors";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 
-const PLAN_LABELS: Record<Plan, string> = { trial: "تجريبي", starter: "أساسي", pro: "احترافي" };
-const STATUS_LABELS: Record<string, string> = { trial: "تجريبي", active: "نشط", suspended: "موقوف", pending: "قيد المراجعة", approved: "مقبول", rejected: "مرفوض" };
+const PLAN_LABELS: Record<Plan, string> = { trial: "تجريبية", starter: "أساسية", pro: "احترافية" };
+const TENANT_STATUS: Record<TenantStatus, { label: string; tone: "info" | "ok" | "danger" }> = {
+  trial: { label: "فترة تجريبية", tone: "info" },
+  active: { label: "نشطة", tone: "ok" },
+  suspended: { label: "موقوفة", tone: "danger" },
+};
+const REQUEST_STATUS: Record<AccessRequestRow["status"], string> = { pending: "قيد المراجعة", approved: "مقبولة", rejected: "مرفوضة" };
 const TABS = { tenants: "الشركات", requests: "طلبات الانضمام", audit: "سجل المنصة" };
-
-// Functional platform console; the visual design comes in Phase E.
+type Tab = keyof typeof TABS;
 type Credentials = { email: string; password: string };
 
+const limit = (n: number | null) => (n === null ? "بلا حد" : n.toLocaleString("en"));
+
 export default function PlatformConsole({ admin, onLogout }: { admin: PlatformAdmin; onLogout(): void }) {
-  const [tab, setTab] = useState<keyof typeof TABS>("tenants");
-  const [credentials, setCredentials] = useState<Credentials | null>(null); // shown once
+  const [params, setParams] = useSearchParams();
+  const requested = params.get("tab") as Tab | null;
+  const tab: Tab = requested && requested in TABS ? requested : "tenants";
+  const [credentials, setCredentials] = useState<Credentials | null>(null);
 
   return (
-    <div className="min-h-screen bg-main text-white p-6 space-y-6">
-      <header className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">إدارة المنصة</h1>
-        <div className="flex gap-4 items-center">
-          <span className="text-sm">{admin.email}</span>
-          <button onClick={onLogout} className="bg-red-600 px-3 py-1 rounded">تسجيل الخروج</button>
-        </div>
-      </header>
-
-      <nav className="flex gap-2">
-        {Object.entries(TABS).map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key as keyof typeof TABS)} className={`px-4 py-2 rounded ${tab === key ? "bg-orange" : "bg-edit"}`}>
-            {label}
-          </button>
-        ))}
-      </nav>
-
-      {tab === "tenants" && <Tenants onCreated={setCredentials} />}
-      {tab === "requests" && <Requests onApproved={setCredentials} />}
-      {tab === "audit" && <Audit />}
-
-      {credentials && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 p-6 rounded-xl w-[460px] space-y-3">
-            <h3 className="text-xl font-bold">بيانات دخول المالك</h3>
-            <p className="text-yellow-400 text-sm">الباسورد يظهر مرة واحدة فقط. أرسله للمالك ليغيّره بعد أول دخول.</p>
-            <code className="block bg-gray-800 p-3 rounded break-all select-all" dir="ltr">{credentials.email}<br />{credentials.password}</code>
-            <div className="flex justify-end">
-              <button className="px-4 py-2 bg-gray-600 rounded" onClick={() => setCredentials(null)}>تم</button>
-            </div>
+    <div className="min-h-dvh">
+      <header className="sticky top-0 z-30 bg-rail text-rail-ink">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
+          <Logo className="text-white" subtitle="إدارة المنصة" />
+          <div className="ms-auto flex items-center gap-2">
+            <span className="hidden text-sm sm:inline">{admin.email}</span>
+            <ThemeToggle className="text-rail-ink" />
+            <Button variant="quiet" size="sm" className="text-rail-ink hover:bg-white/10" icon={<LogOut className="size-4" />} aria-label="تسجيل الخروج" title="تسجيل الخروج" onClick={onLogout} />
           </div>
         </div>
-      )}
+      </header>
+      <main className="mx-auto max-w-6xl px-4 py-6">
+        <Tabs className="mb-5" value={tab} onChange={(t) => setParams({ tab: t })} tabs={(Object.keys(TABS) as Tab[]).map((t) => ({ value: t, label: TABS[t] }))} />
+        {tab === "tenants" && <Tenants onCreated={setCredentials} />}
+        {tab === "requests" && <Requests onApproved={setCredentials} />}
+        {tab === "audit" && <Audit />}
+      </main>
+
+      <Modal
+        open={!!credentials}
+        onClose={() => setCredentials(null)}
+        title="بيانات دخول مالك الشركة"
+        footer={<Button onClick={() => setCredentials(null)}>تم</Button>}
+      >
+        {credentials && (
+          <div className="space-y-4">
+            <p className="text-sm text-ink-2">
+              البريد: <span dir="ltr" className="text-ink">{credentials.email}</span>
+            </p>
+            <SecretReveal label="كلمة المرور المؤقتة" value={credentials.password} note="تظهر مرة واحدة فقط. أرسلها للمالك، وسيُطلب منه تغييرها عند أول دخول." />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
 
 function usePaged<T>(load: (page: number) => Promise<{ data: T[]; meta: PageMeta }>, deps: unknown[]) {
+  const { toast } = useFeedback();
   const [page, setPage] = useState(1);
-  const [result, setResult] = useState<{ items: T[]; pages: number }>({ items: [], pages: 0 });
+  const [result, setResult] = useState<{ items: T[]; pages: number; total: number } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     load(page)
-      .then(({ data, meta }) => setResult({ items: data, pages: meta.pages }))
-      .catch((err) => alert(errorMessage(err)));
+      .then(({ data, meta }) => setResult({ items: data, pages: meta.pages, total: meta.total }))
+      .catch((err) => toast(errorMessage(err), "danger"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, reloadKey, ...deps]);
-  return { ...result, page, setPage, reload: () => setReloadKey((k) => k + 1) };
+  return { result, page, setPage, reload: () => setReloadKey((k) => k + 1) };
 }
 
 function Tenants({ onCreated }: { onCreated(c: Credentials): void }) {
+  const { toast, confirm } = useFeedback();
   const list = usePaged((page: number) => getTenants({ page }), []);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<{ name: string; ownerEmail: string; plan: Plan }>({ name: "", ownerEmail: "", plan: "trial" });
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
     try {
+      setSaving(true);
       const { owner, initialPassword } = await createTenant(form);
-      onCreated({ email: owner.email, password: initialPassword });
+      setAdding(false);
       setForm({ name: "", ownerEmail: "", plan: "trial" });
+      onCreated({ email: owner.email, password: initialPassword });
       list.reload();
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
+    } finally {
+      setSaving(false);
     }
   };
 
   const change = async (tenant: TenantRow, body: { plan?: Plan; status?: TenantStatus }) => {
-    if (body.status === "suspended" && !window.confirm(`إيقاف ${tenant.name}؟ سيتم تسجيل خروج كل المستخدمين وإيقاف مفاتيح API.`)) return;
+    if (body.status === "suspended" && !(await confirm({ title: `إيقاف ${tenant.name}؟`, description: "سيُسجَّل خروج كل مستخدمي الشركة وتتوقف مفاتيح API الخاصة بتجارها حتى تُعاد إلى العمل.", confirmLabel: "إيقاف الشركة", danger: true }))) return;
     try {
       await updateTenant(tenant._id, body);
+      toast(body.plan ? `تم تغيير باقة ${tenant.name}` : body.status === "suspended" ? `تم إيقاف ${tenant.name}` : `أُعيدت ${tenant.name} إلى العمل`);
       list.reload();
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
     }
   };
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={create} className="flex gap-3 flex-wrap items-center">
-        <input required placeholder="اسم الشركة" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border rounded p-2 text-black bg-white" />
-        <input required type="email" placeholder="إيميل المالك" value={form.ownerEmail} onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })} className="border rounded p-2 text-black bg-white" />
-        <select value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value as Plan })} className="border rounded p-2 text-black bg-white">
-          {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-        <button className="bg-green-600 px-4 py-2 rounded">إضافة شركة</button>
-      </form>
+    <>
+      <PageHeader
+        title="الشركات"
+        description={list.result && <><span className="num">{list.result.total}</span> شركة على المنصة</>}
+        actions={<Button icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>إضافة شركة</Button>}
+      />
+      <Panel>
+        <DataTable
+          caption="الشركات"
+          loading={!list.result}
+          rows={list.result?.items ?? []}
+          rowKey={(t) => t._id}
+          columns={[
+            { key: "name", header: "الشركة", primary: true, cell: (t) => <div className="leading-tight"><div className="font-medium text-ink">{t.name}</div><div dir="ltr" className="num text-xs text-ink-3 text-start">{t.slug}</div></div> },
+            { key: "status", header: "الحالة", cell: (t) => <Badge tone={TENANT_STATUS[t.status].tone}>{TENANT_STATUS[t.status].label}</Badge> },
+            {
+              key: "plan",
+              header: "الباقة",
+              cell: (t) => (
+                <Select className="h-8 w-32 text-sm" aria-label={`باقة ${t.name}`} value={t.plan} onChange={(e) => change(t, { plan: e.target.value as Plan })}>
+                  {(Object.keys(PLAN_LABELS) as Plan[]).map((p) => <option key={p} value={p}>{PLAN_LABELS[p]}</option>)}
+                </Select>
+              ),
+            },
+            { key: "trial", header: "نهاية التجربة", hideOnMobile: true, cell: (t) => <span className="num text-ink-2">{t.trialEndsAt ? formatDate(t.trialEndsAt) : "—"}</span> },
+            { key: "limits", header: "الحدود", hideOnMobile: true, cell: (t) => <span className="text-xs text-ink-2"><span className="num">{limit(t.limits?.maxUsers ?? null)}</span> مستخدم، <span className="num">{limit(t.limits?.maxOrdersPerMonth ?? null)}</span> شحنة شهريًا</span> },
+            { key: "created", header: "أُضيفت", hideOnMobile: true, cell: (t) => <span className="num text-ink-3">{formatDate(t.createdAt)}</span> },
+          ]}
+          rowActions={(t) =>
+            t.status === "suspended" ? (
+              <Button size="sm" variant="secondary" onClick={() => change(t, { status: "active" })}>إعادة التفعيل</Button>
+            ) : (
+              <Button size="sm" variant="quiet" className="text-stamp" onClick={() => change(t, { status: "suspended" })}>إيقاف</Button>
+            )
+          }
+          empty={{ icon: <Building2 />, title: "لا توجد شركات بعد", description: "أضف أول شركة أو اقبل طلب انضمام." }}
+        />
+        {list.result && <Pagination page={list.page} pages={list.result.pages} onChange={list.setPage} />}
+      </Panel>
 
-      <table className="w-full text-center text-sm border">
-        <thead className="bg-gray-800">
-          <tr>{["الشركة", "المعرّف", "الباقة", "الحالة", "نهاية التجربة", "حد المستخدمين", "حد الأوردرات/شهر", ""].map((h) => <th key={h} className="p-2 border">{h}</th>)}</tr>
-        </thead>
-        <tbody>
-          {list.items.map((t) => (
-            <tr key={t._id} className="border-b">
-              <td className="p-2">{t.name}</td>
-              <td className="p-2" dir="ltr">{t.slug}</td>
-              <td className="p-2">
-                <select value={t.plan} onChange={(e) => change(t, { plan: e.target.value as Plan })} className="text-black bg-white rounded p-1">
-                  {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </td>
-              <td className="p-2">{STATUS_LABELS[t.status]}</td>
-              <td className="p-2">{t.trialEndsAt ? formatDate(t.trialEndsAt) : "-"}</td>
-              <td className="p-2">{t.limits?.maxUsers ?? "∞"}</td>
-              <td className="p-2">{t.limits?.maxOrdersPerMonth ?? "∞"}</td>
-              <td className="p-2">
-                {t.status === "suspended" ? (
-                  <button onClick={() => change(t, { status: "active" })} className="bg-green-600 px-2 py-1 rounded">تفعيل</button>
-                ) : (
-                  <button onClick={() => change(t, { status: "suspended" })} className="bg-red-600 px-2 py-1 rounded">إيقاف</button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <Pagination page={list.page} pages={list.pages} onChange={list.setPage} />
-    </div>
+      <Modal open={adding} onClose={() => setAdding(false)} title="إضافة شركة" description="يُنشأ حساب للمالك بكلمة مرور مؤقتة تظهر لك مرة واحدة.">
+        <form onSubmit={create} className="space-y-4">
+          <Field label="اسم الشركة">{(p) => <Input {...p} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />}</Field>
+          <Field label="بريد المالك">{(p) => <Input {...p} required type="email" dir="ltr" value={form.ownerEmail} onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })} />}</Field>
+          <PlanField value={form.plan} onChange={(plan) => setForm({ ...form, plan })} />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setAdding(false)}>إلغاء</Button>
+            <Button type="submit" loading={saving}>إضافة الشركة</Button>
+          </div>
+        </form>
+      </Modal>
+    </>
+  );
+}
+
+function PlanField({ value, onChange }: { value: Plan; onChange(p: Plan): void }) {
+  const l = PLAN_LIMITS[value];
+  return (
+    <Field label="الباقة" hint={`${limit(l.maxUsers)} مستخدم، ${limit(l.maxOrdersPerMonth)} شحنة شهريًا`}>
+      {(p) => (
+        <Select {...p} value={value} onChange={(e) => onChange(e.target.value as Plan)}>
+          {(Object.keys(PLAN_LABELS) as Plan[]).map((plan) => <option key={plan} value={plan}>{PLAN_LABELS[plan]}</option>)}
+        </Select>
+      )}
+    </Field>
   );
 }
 
 function Requests({ onApproved }: { onApproved(c: Credentials): void }) {
+  const { toast } = useFeedback();
   const [status, setStatus] = useState<AccessRequestRow["status"]>("pending");
   const list = usePaged((page: number) => getAccessRequests({ page, status }), [status]);
+  const [approving, setApproving] = useState<AccessRequestRow | null>(null);
+  const [plan, setPlan] = useState<Plan>("trial");
+  const [rejecting, setRejecting] = useState<AccessRequestRow | null>(null);
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const approve = async (r: AccessRequestRow) => {
+  const approve = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!approving) return;
     try {
-      const { owner, initialPassword } = await approveAccessRequest(r._id);
+      setSaving(true);
+      const { owner, initialPassword } = await approveAccessRequest(approving._id, { plan });
+      setApproving(null);
       onApproved({ email: owner.email, password: initialPassword });
       list.reload();
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
+    } finally {
+      setSaving(false);
     }
   };
-  const reject = async (r: AccessRequestRow) => {
-    const reason = window.prompt("سبب الرفض (اختياري)") ?? undefined;
+
+  const reject = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!rejecting) return;
     try {
-      await rejectAccessRequest(r._id, reason || undefined);
+      setSaving(true);
+      await rejectAccessRequest(rejecting._id, reason.trim() || undefined);
+      toast(`تم رفض طلب ${rejecting.companyName}`);
+      setRejecting(null);
       list.reload();
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <div className="space-y-4">
-      <select value={status} onChange={(e) => { setStatus(e.target.value as AccessRequestRow["status"]); list.setPage(1); }} className="border rounded p-2 text-black bg-white">
-        {["pending", "approved", "rejected"].map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-      </select>
-      <table className="w-full text-center text-sm border">
-        <thead className="bg-gray-800">
-          <tr>{["الشركة", "المسؤول", "الهاتف", "الإيميل", "رسالة", "التاريخ", ""].map((h) => <th key={h} className="p-2 border">{h}</th>)}</tr>
-        </thead>
-        <tbody>
-          {list.items.map((r) => (
-            <tr key={r._id} className="border-b">
-              <td className="p-2">{r.companyName}</td>
-              <td className="p-2">{r.contactName}</td>
-              <td className="p-2" dir="ltr">{r.phone}</td>
-              <td className="p-2" dir="ltr">{r.email}</td>
-              <td className="p-2">{r.message || "-"}</td>
-              <td className="p-2">{formatDate(r.createdAt)}</td>
-              <td className="p-2 space-x-2 space-x-reverse">
-                {r.status === "pending" && (
-                  <>
-                    <button onClick={() => approve(r)} className="bg-green-600 px-2 py-1 rounded">قبول</button>
-                    <button onClick={() => reject(r)} className="bg-red-600 px-2 py-1 rounded">رفض</button>
-                  </>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <Pagination page={list.page} pages={list.pages} onChange={list.setPage} />
-    </div>
+    <>
+      <PageHeader
+        title="طلبات الانضمام"
+        description="الطلبات القادمة من صفحة مسار العامة."
+        actions={
+          <Select className="w-40" aria-label="حالة الطلب" value={status} onChange={(e) => { setStatus(e.target.value as AccessRequestRow["status"]); list.setPage(1); }}>
+            {(Object.keys(REQUEST_STATUS) as AccessRequestRow["status"][]).map((s) => <option key={s} value={s}>{REQUEST_STATUS[s]}</option>)}
+          </Select>
+        }
+      />
+      <Panel>
+        <DataTable
+          caption="طلبات الانضمام"
+          loading={!list.result}
+          rows={list.result?.items ?? []}
+          rowKey={(r) => r._id}
+          columns={[
+            { key: "company", header: "الشركة", primary: true, cell: (r) => <div className="leading-tight"><div className="font-medium text-ink">{r.companyName}</div><div className="text-xs text-ink-3">{r.contactName}</div></div> },
+            { key: "contact", header: "التواصل", cell: (r) => <div dir="ltr" className="num text-start text-sm leading-tight text-ink-2"><div>{r.email}</div><div>{r.phone}</div></div> },
+            { key: "message", header: "الرسالة", hideOnMobile: true, cell: (r) => <span className="line-clamp-2 max-w-72 text-ink-2">{r.message || "—"}</span> },
+            { key: "date", header: "التاريخ", cell: (r) => <span className="num text-ink-3">{formatDate(r.createdAt)}</span> },
+          ]}
+          rowActions={(r) =>
+            r.status === "pending" && (
+              <div className="flex gap-1">
+                <Button size="sm" onClick={() => { setPlan("trial"); setApproving(r); }}>قبول</Button>
+                <Button size="sm" variant="quiet" className="text-stamp" onClick={() => { setReason(""); setRejecting(r); }}>رفض</Button>
+              </div>
+            )
+          }
+          empty={{ icon: <Inbox />, title: status === "pending" ? "لا توجد طلبات جديدة" : "لا توجد طلبات بهذه الحالة" }}
+        />
+        {list.result && <Pagination page={list.page} pages={list.result.pages} onChange={list.setPage} />}
+      </Panel>
+
+      <Modal open={!!approving} onClose={() => setApproving(null)} title={`قبول ${approving?.companyName ?? ""}`} description={approving && <>يُنشأ حساب المالك على <span dir="ltr">{approving.email}</span>.</>}>
+        <form onSubmit={approve} className="space-y-4">
+          <PlanField value={plan} onChange={setPlan} />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setApproving(null)}>إلغاء</Button>
+            <Button type="submit" loading={saving}>قبول وإنشاء الشركة</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={!!rejecting} onClose={() => setRejecting(null)} title={`رفض طلب ${rejecting?.companyName ?? ""}`}>
+        <form onSubmit={reject} className="space-y-4">
+          <Field label="السبب" hint="اختياري، يُحفظ مع الطلب">{(p) => <Textarea {...p} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />}</Field>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setRejecting(null)}>إلغاء</Button>
+            <Button type="submit" variant="danger" loading={saving}>رفض الطلب</Button>
+          </div>
+        </form>
+      </Modal>
+    </>
   );
 }
+
+const ACTIONS: Record<string, string> = {
+  LOGIN: "تسجيل دخول",
+  LOGIN_FAILED: "محاولة دخول فاشلة",
+  CHANGE_OWN_PASSWORD: "تغيير كلمة المرور",
+  VIEW: "عرض بيانات",
+  CREATE_TENANT: "إضافة شركة",
+  UPDATE_TENANT: "تعديل شركة",
+  APPROVE_ACCESS_REQUEST: "قبول طلب انضمام",
+  REJECT_ACCESS_REQUEST: "رفض طلب انضمام",
+};
+
+// Read audits store the API path as their target; show the screen it belongs to instead.
+const VIEWED: [RegExp, string][] = [
+  [/^\/platform\/tenants/, "قائمة الشركات"],
+  [/^\/platform\/access-requests/, "طلبات الانضمام"],
+  [/^\/platform\/audit-logs/, "سجل المنصة"],
+];
+const targetLabel = (label?: string) => (label && VIEWED.find(([re]) => re.test(label))?.[1]) || label || "—";
 
 function Audit() {
   const list = usePaged((page: number) => getPlatformAuditLogs({ page, limit: 30 }), []);
   return (
-    <div>
-      <table className="w-full text-center text-sm border">
-        <thead className="bg-gray-800">
-          <tr>{["العملية", "الهدف", "بواسطة", "IP", "التاريخ"].map((h) => <th key={h} className="p-2 border">{h}</th>)}</tr>
-        </thead>
-        <tbody>
-          {list.items.map((e) => (
-            <tr key={e._id} className="border-b">
-              <td className="p-2" dir="ltr">{e.action}</td>
-              <td className="p-2" dir="auto">{e.target?.label || "-"}</td>
-              <td className="p-2">{e.actor?.email || "-"}</td>
-              <td className="p-2" dir="ltr">{e.ip || "-"}</td>
-              <td className="p-2">{new Date(e.createdAt).toLocaleString("ar-EG")}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <Pagination page={list.page} pages={list.pages} onChange={list.setPage} />
-    </div>
+    <>
+      <PageHeader title="سجل المنصة" description="كل إجراء قام به مسؤولو المنصة." />
+      <Panel>
+        <DataTable
+          caption="سجل المنصة"
+          loading={!list.result}
+          rows={list.result?.items ?? []}
+          rowKey={(e) => e._id}
+          columns={[
+            { key: "action", header: "الإجراء", primary: true, cell: (e) => <span className="font-medium text-ink">{ACTIONS[e.action] ?? e.action}</span> },
+            { key: "target", header: "على", cell: (e) => <span dir="auto" className="text-ink-2">{targetLabel(e.target?.label)}</span> },
+            { key: "actor", header: "بواسطة", cell: (e) => <span dir="ltr" className="text-ink-2">{e.actor?.email || "—"}</span> },
+            { key: "ip", header: "IP", hideOnMobile: true, cell: (e) => <span dir="ltr" className="num text-ink-3">{e.ip || "—"}</span> },
+            { key: "at", header: "الوقت", cell: (e) => <span className="num text-ink-3">{formatDateTime(e.createdAt)}</span> },
+          ]}
+          empty={{ icon: <ScrollText />, title: "السجل فارغ" }}
+        />
+        {list.result && <Pagination page={list.page} pages={list.result.pages} onChange={list.setPage} />}
+      </Panel>
+    </>
   );
 }
