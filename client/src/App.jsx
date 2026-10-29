@@ -22,6 +22,7 @@ import PlatformApp from "./platform/PlatformApp";
 import { ADMIN_ROLES, STAFF_ROLES } from "./utils/roles";
 import CourierApp from "./CourierApp";
 import MerchantPortal from "./MerchantPortal";
+import TrackingPage from "./TrackingPage";
 
 const adminOnly = (page) => <ProtectedRoute allow={ADMIN_ROLES}>{page}</ProtectedRoute>;
 
@@ -30,6 +31,8 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/platform/*" element={<PlatformApp />} />
+      <Route path="/track" element={<TrackingPage />} />
+      <Route path="/track/:trackingId" element={<TrackingPage />} />
       <Route path="/courier" element={<ProtectedRoute allow={["courier"]}><CourierApp /></ProtectedRoute>} />
       <Route path="/portal" element={<ProtectedRoute allow={["merchant"]}><MerchantPortal /></ProtectedRoute>} />
 

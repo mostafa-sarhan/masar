@@ -15,3 +15,4 @@ export const rotatePortalApiKey = () => api("/portal/api-key", { method: "POST" 
 // Admin: create logins for couriers / merchants (one-time passwords)
 export const createCourierAccount = (courierId, email, password) => api(`/couriers/${courierId}/account`, { method: "POST", body: { email, password } });
 export const createMerchantUser = (merchantId, email, password) => api(`/merchants/${merchantId}/users`, { method: "POST", body: { email, password } });
+export const getPortalOrder = (id) => api(`/portal/orders/${id}`);

@@ -9,7 +9,7 @@ function contentSecurityPolicy(apiUrl) {
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https:", // company logos (https only)
     "font-src 'self'",
     `connect-src 'self' ${apiUrl}`,
     "object-src 'none'",

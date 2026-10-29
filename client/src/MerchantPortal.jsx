@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import PortalLayout from "./PortalLayout";
 import Money from "./Money";
 import Pagination from "./Pagination";
-import { getPortalOrders, createPortalOrder, getPortalStatement, getPortalApiKey, rotatePortalApiKey } from "./services/portalsApi";
+import { getPortalOrders, createPortalOrder, getPortalStatement, getPortalApiKey, rotatePortalApiKey, getPortalOrder } from "./services/portalsApi";
+import { trackingUrl } from "./services/ordersApi";
+import StatusTimeline from "./StatusTimeline";
 import { errorMessage } from "./services/errors";
 import { formatDate } from "./utils/dataUtils";
 import { ORDER_STATUSES, statusLabel } from "./utils/orderStatus";
@@ -32,6 +34,7 @@ function OrdersTab() {
   const [filters, setFilters] = useState({ status: "", search: "" });
   const [page, setPage] = useState(1);
   const [result, setResult] = useState({ items: [], pages: 0, total: 0 });
+  const [details, setDetails] = useState(null);
 
   useEffect(() => {
     getPortalOrders({ ...filters, page, limit: 20 })
@@ -61,7 +64,7 @@ function OrdersTab() {
           </thead>
           <tbody>
             {result.items.map((o) => (
-              <tr key={o._id} className="border-b">
+              <tr key={o._id} className="border-b cursor-pointer hover:bg-gray-800" onClick={() => getPortalOrder(o._id).then(setDetails).catch((err) => alert(errorMessage(err)))}>
                 <td className="p-2">{formatDate(o.createdAt)}</td>
                 <td className="p-2" dir="ltr">{o.barcode}</td>
                 <td className="p-2" dir="ltr">{o.merchantRef || "-"}</td>
@@ -76,6 +79,16 @@ function OrdersTab() {
         </table>
       </div>
       <Pagination page={page} pages={result.pages} onChange={setPage} />
+
+      {details && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={() => setDetails(null)}>
+          <aside className="bg-edit w-full md:w-[420px] h-full overflow-y-auto p-6 space-y-4 text-start" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between"><h3 className="text-xl font-bold">{details.fullName}</h3><button onClick={() => setDetails(null)}>✕</button></div>
+            <p dir="ltr" className="text-xs break-all">{trackingUrl(details.trackingId)}</p>
+            <StatusTimeline events={details.statusHistory} />
+          </aside>
+        </div>
+      )}
     </div>
   );
 }

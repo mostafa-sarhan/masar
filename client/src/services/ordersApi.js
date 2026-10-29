@@ -16,3 +16,10 @@ export const updateOrder = (id, changes) => api(`/orders/${id}`, { method: "PATC
 // { requested, updated, conflicts }
 export const bulkAssign = (orderIds, courier) => api("/orders/bulk/assign", { method: "POST", body: { orderIds, courier } });
 export const bulkStatus = (updates) => api("/orders/bulk/status", { method: "POST", body: { updates } });
+
+export const getOrder = (id) => api(`/orders/${id}`);
+export const getOrderHistory = (id) => api(`/orders/${id}/history`);
+
+// Public tracking (no login)
+export const trackShipment = (trackingId) => api(`/track/${encodeURIComponent(trackingId)}`);
+export const trackingUrl = (trackingId) => `${window.location.origin}${window.location.pathname}#/track/${trackingId}`;

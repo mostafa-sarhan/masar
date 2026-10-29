@@ -5,6 +5,7 @@ import { useAuth } from "./AuthContext";
 import { isAdmin as isAdminRole } from "./utils/roles";
 import { usePagedOrders } from "./hooks/usePagedOrders";
 import FormOrder from "./FormOrder";
+import OrderDetails from "./OrderDetails";
 import CourierSelect from "./CourierSelect";
 import MerchantSelect from "./MerchantSelect";
 import Pagination from "./Pagination";
@@ -19,6 +20,7 @@ export default function Orders() {
   const { user } = useAuth();
   const isAdmin = isAdminRole(user?.role);
   const [editingOrder, setEditingOrder] = useState(null);
+  const [detailsId, setDetailsId] = useState(null);
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -116,6 +118,9 @@ export default function Orders() {
                   <button onClick={() => printLabel(order)} className="bg-green-400 px-3 py-1 rounded cursor-pointer">
                     طباعة
                   </button>
+                  <button onClick={() => setDetailsId(order._id)} className="bg-blue-400 px-3 py-1 rounded cursor-pointer">
+                    تفاصيل
+                  </button>
                 </>
               }
             />
@@ -126,6 +131,8 @@ export default function Orders() {
       )}
 
       <Pagination page={page} pages={result.pages} onChange={setPage} />
+
+      {detailsId && <OrderDetails orderId={detailsId} onClose={() => setDetailsId(null)} />}
 
       {/* Edit Modal (admin) */}
       {editingOrder && (
