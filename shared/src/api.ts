@@ -99,3 +99,22 @@ export interface Summary {
 export interface ReportMeta {
   fees: { courier: number; company: number };
 }
+
+// GET /dashboard (staff)
+export interface DashboardOverview {
+  counts: Record<OrderStatus, number>;
+  today: { delivered: number; returned: number; refused: number; cash: number };
+  couriers: { _id: string; name: string | null; open: number; closedToday: number; deliveredToday: number; cashToday: number }[];
+  attention: {
+    _id: string;
+    barcode: string;
+    fullName: string;
+    address: string;
+    status: OrderStatus;
+    reason: string | null;
+    courier: Ref | null;
+    updatedAt: string;
+    late: boolean;
+  }[];
+  week: { day: string; delivered: number }[];
+}

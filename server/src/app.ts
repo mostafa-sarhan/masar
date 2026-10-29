@@ -21,6 +21,7 @@ import settingsRoutes from "./modules/settings/settings.routes";
 import courierAppRoutes from "./modules/courier-app/courier-app.routes";
 import merchantPortalRoutes from "./modules/merchant-portal/merchant-portal.routes";
 import trackingRoutes from "./modules/tracking/tracking.routes";
+import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import importRoutes from "./modules/import/import.routes";
 import platformRoutes from "./modules/platform/platform.routes";
 import accessRequestRoutes from "./modules/platform/access-requests.routes";
@@ -66,6 +67,7 @@ export function createApp() {
   app.use("/courier", courierAppRoutes);
   app.use("/portal", merchantPortalRoutes);
   app.use("/track", trackingRoutes);
+  app.use("/dashboard", dashboardRoutes);
   app.use("/access-requests", accessRequestRoutes);
   app.use("/platform", platformRoutes);
 
