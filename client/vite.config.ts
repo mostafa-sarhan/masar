@@ -29,6 +29,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, 'VITE_')
   return {
     plugins: [react(), tailwindcss(), contentSecurityPolicy(env.VITE_API_URL || 'http://localhost:5000')],
+    // exceljs (~930 kB) is only fetched when someone exports a report.
+    build: { chunkSizeWarningLimit: 1000 },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

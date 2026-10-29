@@ -1,4 +1,7 @@
 // Tenant display preferences (timezone, currency), set once after login by AuthProvider.
+// Arabic text with Latin digits, matching phones, barcodes and amounts typed by users.
+export const LOCALE = "ar-EG-u-nu-latn";
+
 const prefs = { timezone: "Africa/Cairo", currency: "EGP" };
 
 export function setDisplayPrefs({ timezone, currency }: { timezone?: string; currency?: string } = {}) {
@@ -12,7 +15,7 @@ export const displayTimezone = () => prefs.timezone;
 export function formatMoney(value: number | string | null | undefined) {
   const n = Number(value) || 0;
   try {
-    return new Intl.NumberFormat("ar-EG", { style: "currency", currency: prefs.currency, maximumFractionDigits: 2 }).format(n);
+    return new Intl.NumberFormat(LOCALE, { style: "currency", currency: prefs.currency, maximumFractionDigits: 2 }).format(n);
   } catch {
     return `${n} ${prefs.currency}`;
   }

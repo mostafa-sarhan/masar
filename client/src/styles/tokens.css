@@ -1,0 +1,67 @@
+/* Masar design tokens — direction "Waybill".
+   Light: manifest paper and navy ink. Dark: the same manifest at night (deep ink blue, not black).
+   Contrast (measured, WCAG 2): body text ≥ 13:1, every text/background pair ≥ 4.5:1 in both themes. */
+
+:root {
+  color-scheme: light;
+  /* Surfaces */
+  --c-paper: #eef1f5;      /* app background (manifest paper) */
+  --c-sheet: #ffffff;      /* cards, tables, dialogs */
+  --c-sheet-2: #f6f8fb;    /* inset areas, table headers, hovered rows */
+  --c-rail: #1c2a4a;       /* side navigation */
+  --c-rail-ink: #dce3f0;
+  --c-rail-muted: #9fb0cf;
+  /* Ink */
+  --c-ink: #1c2a4a;        /* 14.2:1 on sheet */
+  --c-ink-2: #4f5c78;      /* 6.7:1 on sheet */
+  --c-ink-3: #5b6780;      /* ≥ 5.0:1 on sheet and paper — hints, placeholders */
+  --c-rule: #c9d1de;
+  --c-rule-soft: #e3e8f0;
+  /* Accents */
+  --c-carbon: #3550c8;     /* primary actions, links (6.7:1 with white) */
+  --c-carbon-ink: #ffffff;
+  --c-carbon-soft: #e6eafb;
+  --c-stamp: #b8322a;      /* refused, destructive (6.0:1 with white) */
+  --c-stamp-soft: #fbe9e7;
+  --c-ok: #1b7350;         /* delivered (5.8:1 with white) */
+  --c-ok-soft: #e3f3ec;
+  --c-late: #8a5d00;       /* late, returned (5.8:1 on sheet) */
+  --c-late-soft: #fdf3dc;
+  --c-tape: #f2c230;       /* customs tape — highlights only, never text */
+  --c-focus: #3550c8;
+  /* Effects */
+  --shadow-1: 0 1px 2px rgb(28 42 74 / 0.06), 0 1px 1px rgb(28 42 74 / 0.04);
+  --shadow-2: 0 6px 24px -8px rgb(28 42 74 / 0.18), 0 2px 6px rgb(28 42 74 / 0.06);
+  --shadow-3: 0 24px 64px -16px rgb(28 42 74 / 0.32);
+  --scrim: rgb(14 22 40 / 0.45);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --c-paper: #0f1626;
+  --c-sheet: #172036;
+  --c-sheet-2: #1d2841;
+  --c-rail: #0b1120;
+  --c-rail-ink: #d7dff0;
+  --c-rail-muted: #8796b5;
+  --c-ink: #e7ecf6;        /* 13.7:1 on sheet */
+  --c-ink-2: #aab5cc;      /* 7.9:1 */
+  --c-ink-3: #8c98b3;      /* 5.6:1 */
+  --c-rule: #2f3b58;
+  --c-rule-soft: #243049;
+  --c-carbon: #8fa2ff;     /* on dark surfaces; text on it uses carbon-ink */
+  --c-carbon-ink: #0f1626;
+  --c-carbon-soft: #24305a;
+  --c-stamp: #ff8a7d;
+  --c-stamp-soft: #3a2027;
+  --c-ok: #5fd3a2;
+  --c-ok-soft: #173329;
+  --c-late: #f2c35a;
+  --c-late-soft: #352a14;
+  --c-tape: #f2c230;
+  --c-focus: #8fa2ff;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-2: 0 8px 28px -10px rgb(0 0 0 / 0.6);
+  --shadow-3: 0 28px 70px -20px rgb(0 0 0 / 0.75);
+  --scrim: rgb(4 8 16 / 0.6);
+}

@@ -18,6 +18,11 @@ export default tseslint.config(
     files: ["server/**/*.ts", "shared/**/*.ts"],
     languageOptions: { globals: globals.node },
   },
+  // Plain scripts served as-is (theme-init runs before the app)
+  {
+    files: ["client/public/**/*.js"],
+    languageOptions: { globals: globals.browser, sourceType: "script" },
+  },
   // React app (browser)
   {
     files: ["client/**/*.{ts,tsx}"],

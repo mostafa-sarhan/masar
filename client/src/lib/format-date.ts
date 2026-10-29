@@ -1,4 +1,4 @@
-import { displayTimezone } from "./locale";
+import { displayTimezone, LOCALE } from "./locale";
 
 // dd-mm-yyyy in the tenant's timezone. Values that aren't dates are shown as they are.
 export function formatDate(value: string | Date | null | undefined) {
@@ -14,4 +14,4 @@ export function formatDate(value: string | Date | null | undefined) {
 }
 
 export const formatDateTime = (value: string | Date) =>
-  new Date(value).toLocaleString("ar-EG", { timeZone: displayTimezone(), dateStyle: "medium", timeStyle: "short" });
+  new Date(value).toLocaleString(LOCALE, { timeZone: displayTimezone(), dateStyle: "medium", timeStyle: "short" });

@@ -10,14 +10,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@fontsource-variable/readex-pro": "^5.3.0",
+    "@masar/shared": "*",
     "@tailwindcss/vite": "^4.3.3",
     "exceljs": "^4.4.0",
     "jsbarcode": "^3.12.3",
+    "lucide-react": "^1.64.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-router-dom": "^7.18.4",
-    "recharts": "^3.10.1",
-    "@masar/shared": "*"
+    "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

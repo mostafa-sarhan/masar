@@ -1,51 +1,188 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-/*
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+@import "@fontsource-variable/readex-pro/wght.css";
+@import "tailwindcss";
+@import "./tokens.css";
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale; */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --font-sans: "Readex Pro Variable", "Readex Pro Fallback", system-ui, sans-serif;
+
+  --color-paper: var(--c-paper);
+  --color-sheet: var(--c-sheet);
+  --color-sheet-2: var(--c-sheet-2);
+  --color-rail: var(--c-rail);
+  --color-rail-ink: var(--c-rail-ink);
+  --color-rail-muted: var(--c-rail-muted);
+  --color-ink: var(--c-ink);
+  --color-ink-2: var(--c-ink-2);
+  --color-ink-3: var(--c-ink-3);
+  --color-rule: var(--c-rule);
+  --color-rule-soft: var(--c-rule-soft);
+  --color-carbon: var(--c-carbon);
+  --color-carbon-ink: var(--c-carbon-ink);
+  --color-carbon-soft: var(--c-carbon-soft);
+  --color-stamp: var(--c-stamp);
+  --color-stamp-soft: var(--c-stamp-soft);
+  --color-ok: var(--c-ok);
+  --color-ok-soft: var(--c-ok-soft);
+  --color-late: var(--c-late);
+  --color-late-soft: var(--c-late-soft);
+  --color-tape: var(--c-tape);
+  --color-scrim: var(--scrim);
+
+  /* Type scale (ratio ≈ 1.2): 12 13 14 15 17 20 24 30 40 */
+  --text-2xs: 0.75rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
+  --text-3xl: 2.5rem;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
 }
 
-.h-large{
-  height: 120% ;
+/* Fallback metrics close to Readex Pro, so text doesn't jump when the web font arrives. */
+@font-face {
+  font-family: "Readex Pro Fallback";
+  src: local("Arial");
+  size-adjust: 104%;
+  ascent-override: 98%;
+  descent-override: 32%;
 }
 
-
-.orders-grid {
-  display: grid;
-  grid-template-columns:
-    40px    /* التاريخ */
-    100px   /* التاريخ */
-    200px   /* الباركود */
-    170px   /* العنوان */
-    170px   /* المرسل إليه */
-    100px    /* الحالة */
-    80px    /* الشركة */
-    100px   /* المندوب */
-    80px    /* المبلغ */
-    130px;  /* الأمر */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  /* Stray overflow (animations, long words) must never widen the page sideways on phones. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+  body {
+    margin: 0;
+    background: var(--c-paper);
+    color: var(--c-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.6;
+    font-feature-settings: "kern";
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Numbers line up in tables and counters. */
+  .num,
+  table,
+  input[type="number"] {
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--c-carbon) 25%, transparent);
+  }
+  dialog::backdrop {
+    background: var(--scrim);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
 }
 
-.orders-cell {
-  border-inline-start: 2px solid #ccc;
-  padding: 6px;
-  text-align: center;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* white-space: nowrap; */
-  /* overflow: hidden; */
-  /* text-overflow: ellipsis; */
+@layer components {
+  /* The manifest sheet: a page of today's work with a perforated top edge. */
+  .manifest {
+    position: relative;
+    background-color: var(--c-sheet);
+    border: 1px solid var(--c-rule);
+    border-radius: 4px 4px var(--radius-lg) var(--radius-lg);
+    background-image: radial-gradient(circle at 8px -2px, var(--c-paper) 5px, transparent 5.5px);
+    background-size: 16px 10px;
+    background-repeat: repeat-x;
+  }
+  /* Rubber stamp used for order outcomes. */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    border: 2px solid currentColor;
+    border-radius: 4px;
+    padding: 0.05em 0.55em;
+    font-weight: 600;
+    line-height: 1.5;
+    transform: rotate(-3deg);
+    white-space: nowrap;
+  }
+  .stamp-press {
+    animation: stamp-press 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  @keyframes stamp-press {
+    from {
+      transform: rotate(-9deg) scale(1.35);
+      opacity: 0;
+    }
+    to {
+      transform: rotate(-3deg) scale(1);
+      opacity: 1;
+    }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, var(--c-sheet-2) 25%, var(--c-rule-soft) 50%, var(--c-sheet-2) 75%);
+    background-size: 200% 100%;
+    animation: skeleton 1.4s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+  }
+  @keyframes skeleton {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
 }
 
+/* Native select with a chevron on the inline-end side (RTL: left). */
+.select-chevron {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%236b7790' stroke-width='1.6'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+}
+[dir="ltr"] .select-chevron {
+  background-position: right 12px center;
+}
 
-
+@layer components {
+  /* Landing hero: the stamp lands once, shortly after the page appears. */
+  .hero-stamp {
+    border-width: 3px;
+    transform: rotate(-8deg);
+    background: color-mix(in oklab, var(--c-sheet) 70%, transparent);
+    animation: hero-stamp 420ms cubic-bezier(0.2, 0.9, 0.3, 1.25) 650ms both;
+  }
+  @keyframes hero-stamp {
+    from {
+      transform: rotate(-16deg) scale(1.8);
+      opacity: 0;
+    }
+    to {
+      transform: rotate(-8deg) scale(1);
+      opacity: 1;
+    }
+  }
+}
