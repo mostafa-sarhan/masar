@@ -1,0 +1,86 @@
+import { beforeAll, afterAll, beforeEach } from "vitest";
+import mongoose from "mongoose";
+import request from "supertest";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { createApp } from "../src/app";
+import { User, Role } from "../src/modules/users/user.model";
+import { Tenant, TenantDoc } from "../src/modules/tenants/tenant.model";
+import { Courier } from "../src/modules/couriers/courier.model";
+import { Merchant } from "../src/modules/merchants/merchant.model";
+import { PlatformAdmin } from "../src/modules/platform/platformAdmin.model";
+import { hashPassword } from "../src/modules/auth/password";
+import { resetRateLimits } from "../src/lib/rateLimit";
+
+export { UNSCOPED } from "../src/lib/tenantPlugin";
+
+export const app = createApp();
+export const PASSWORD = "Str0ngPassw0rd";
+
+let defaultTenant: TenantDoc | null = null;
+
+// One in-memory MongoDB replica set per test file (transactions need one), wiped before each test.
+export function useDb() {
+  let server: MongoMemoryReplSet;
+  beforeAll(async () => {
+    server = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: "wiredTiger" } });
+    await mongoose.connect(server.getUri());
+    await Promise.all(Object.values(mongoose.models).map((m) => m.syncIndexes()));
+  });
+  beforeEach(async () => {
+    defaultTenant = null;
+    resetRateLimits();
+    await Promise.all(Object.values(mongoose.connection.collections).map((c) => c.deleteMany({})));
+  });
+  afterAll(async () => {
+    await mongoose.disconnect();
+    await server?.stop();
+  });
+}
+
+let slugCounter = 0;
+// Test tenants charge courier 20 / company 10 per delivered order.
+export const createTenant = (name = "Acme Shipping", extra: Record<string, unknown> = {}) =>
+  Tenant.create({ name, slug: `t-${++slugCounter}`, plan: "pro", status: "active", settings: { fees: { courier: 20, company: 10 } }, ...extra });
+
+// The tenant used when a test doesn't care which one.
+export const getTenant = async () => (defaultTenant ||= await createTenant());
+
+export async function createUser(role: Role, email = `${role}@test.com`, tenant?: TenantDoc, password = PASSWORD) {
+  const t = tenant ?? (await getTenant());
+  return User.create({ tenantId: t._id, email, role, password: await hashPassword(password) });
+}
+
+// A supertest agent that keeps cookies, already logged in.
+export async function loginAs(role: Role, email = `${role}@test.com`, tenant?: TenantDoc) {
+  if (!(await User.exists({ email }).setOptions({ skipTenantCheck: true }))) await createUser(role, email, tenant);
+  const agent = request.agent(app);
+  const res = await agent.post("/auth/login").send({ email, password: PASSWORD });
+  if (res.status !== 200) throw new Error(`login failed: ${JSON.stringify(res.body)}`);
+  return agent;
+}
+
+export async function seedRefs(tenant?: TenantDoc) {
+  const t = tenant ?? (await getTenant());
+  const [courier, merchant] = await Promise.all([
+    Courier.create({ tenantId: t._id, name: "Ali" }),
+    Merchant.create({ tenantId: t._id, name: "Acme" }),
+  ]);
+  return { courier: courier._id.toString(), merchant: merchant._id.toString() };
+}
+
+export async function loginPlatform(email = "root@platform.test") {
+  await PlatformAdmin.create({ email, password: await hashPassword(PASSWORD), mustChangePassword: false });
+  const agent = request.agent(app);
+  const res = await agent.post("/platform/auth/login").send({ email, password: PASSWORD });
+  if (res.status !== 200) throw new Error(`platform login failed: ${JSON.stringify(res.body)}`);
+  return agent;
+}
+
+export const orderInput = (merchant: string, extra: Record<string, unknown> = {}) => ({
+  fullName: "Customer",
+  phone: "01001234567",
+  address: "Cairo",
+  cost: 100,
+  merchant,
+  ...extra,
+});
