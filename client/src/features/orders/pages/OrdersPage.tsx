@@ -1,178 +1,150 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { PackagePlus, Printer, Package } from "lucide-react";
 import type { OrderUpdate } from "@masar/shared";
-import type { Order } from "@/lib/types";
-import { exportOrders, updateOrder } from "@/features/orders/api/orders-api";
-import { errorMessage } from "@/lib/errors";
+import { exportOrders, updateOrder } from "../api/orders-api";
+import { usePagedOrders } from "../hooks/use-paged-orders";
+import { orderColumns } from "../components/order-columns";
+import { OrderFilters, type Filters } from "../components/OrderFilters";
+import OrderDetailsDrawer from "../components/OrderDetailsDrawer";
+import BulkActions from "../components/BulkActions";
+import OrderForm from "../components/OrderForm";
+import { printLabel, printOrdersTable } from "../lib/print";
 import { useAuth } from "@/app/auth-context";
-import { isAdmin as isAdminRole } from "@/lib/roles";
-import { usePagedOrders } from "@/features/orders/hooks/use-paged-orders";
-import OrderForm from "@/features/orders/components/OrderForm";
-import OrderDetails from "@/features/orders/components/OrderDetailsDrawer";
-import BulkActions from "@/features/orders/components/BulkActions";
-import CourierSelect from "@/features/couriers/components/CourierSelect";
-import MerchantSelect from "@/features/merchants/components/MerchantSelect";
+import { PageHeader, Panel } from "@/components/ui/Panel";
+import { DataTable } from "@/components/ui/DataTable";
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Overlay";
 import Pagination from "@/components/ui/Pagination";
-import { OrdersHeader, OrderRow } from "@/features/orders/components/OrderRow";
-import { printLabel, printOrdersTable } from "@/features/orders/lib/print";
-import { toLatinDigits } from "@/lib/digits";
-import { ORDER_STATUSES, statusLabel } from "@/lib/order-status";
+import Money from "@/components/ui/Money";
+import { useFeedback } from "@/components/ui/feedback-context";
+import { ORDER_STATUSES } from "@/lib/order-status";
+import { isAdmin as isAdminRole } from "@/lib/roles";
+import { errorMessage } from "@/lib/errors";
+import type { Order } from "@/lib/types";
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 20;
 
 export default function OrdersPage() {
   const { user } = useAuth();
-  const isAdmin = isAdminRole(user?.role);
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [detailsId, setDetailsId] = useState<string | null>(null);
-  // Selected orders on the current page (cleared when the page or filters change).
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const admin = isAdminRole(user?.role);
+  const { toast } = useFeedback();
+  const [params, setParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Order | null>(null);
 
-  // 🔍 Filters (changing one goes back to page 1)
-  const [filters, setFilters] = useState({ search: "", merchant: "", status: "", courier: "", date: "" });
-  const setFilter = (name: keyof typeof filters) => (value: string) => {
-    setFilters((f) => ({ ...f, [name]: value }));
-    setPage(1);
-    setSelected({});
+  // Filters live in the URL, so a search from the command palette or a shared link works.
+  const filters: Filters = {
+    search: params.get("search") ?? "",
+    status: params.get("status") ?? "",
+    merchant: params.get("merchant") ?? "",
+    courier: params.get("courier") ?? "",
+    date: params.get("date") ?? "",
   };
-  const goToPage = (p: number) => {
-    setPage(p);
-    setSelected({});
-  };
-  const { search, merchant, status, courier, date } = filters;
+  const setFilters = useCallback(
+    (f: Filters) => {
+      setParams(Object.fromEntries(Object.entries(f).filter(([, v]) => v)), { replace: true });
+      setPage(1);
+      setSelected(new Set());
+    },
+    [setParams]
+  );
 
-  const { loading, ...result } = usePagedOrders({ ...filters, page, limit: PAGE_SIZE }, reloadKey);
-  const selectedOrders = result.items.filter((o) => selected[o._id]);
-  const toggle = (id: string) => setSelected((s) => ({ ...s, [id]: !s[id] }));
-  const allSelected = result.items.length > 0 && selectedOrders.length === result.items.length;
-  const toggleAll = () => setSelected(allSelected ? {} : Object.fromEntries(result.items.map((o) => [o._id, true])));
+  const { loading, items, total, pages, totalCost } = usePagedOrders({ ...filters, page, limit: PAGE_SIZE }, reloadKey);
+  const selectedOrders = useMemo(() => items.filter((o) => selected.has(o._id)), [items, selected]);
+  const reload = () => setReloadKey((k) => k + 1);
 
-  const handleUpdate = async (changes: OrderUpdate) => {
+  const toggle = (id: string) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () => setSelected((s) => (items.every((o) => s.has(o._id)) ? new Set() : new Set(items.map((o) => o._id))));
+
+  // Owners/admins print everything matching the filters; employees print the current page.
+  const printTable = async () => {
     try {
-      if (editingOrder && Object.keys(changes).length) await updateOrder(editingOrder._id, changes);
-      setEditingOrder(null);
-      setReloadKey((k) => k + 1);
+      if (!admin) return printOrdersTable(items);
+      const { data, meta } = await exportOrders(filters);
+      if (meta.truncated) toast(`ستُطبع أول ${data.length} شحنة من ${meta.total}`, "info");
+      printOrdersTable(data);
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
     }
   };
 
-  // Admins print everything that matches the filters; employees print the current page.
-  const handlePrintTable = async () => {
+  const saveEdit = async (changes: OrderUpdate) => {
+    if (!editing) return;
     try {
-      if (!isAdmin) return printOrdersTable(result.items);
-      const { data, meta } = await exportOrders(filters);
-      if (meta?.truncated) alert(`سيتم طباعة أول ${data.length} من ${meta?.total} أوردر`);
-      printOrdersTable(data);
+      if (Object.keys(changes).length) await updateOrder(editing._id, changes);
+      setEditing(null);
+      toast("تم حفظ التعديلات");
+      reload();
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
     }
   };
 
   return (
-    <div>
-      {/* Filters */}
-      <div className="w-[98%] m-auto my-4 flex flex-wrap items-center gap-4">
-        <input
-          type="text"
-          placeholder="بحث برقم الهاتف أو الباركود (من البداية)"
-          value={search}
-          onChange={(e) => setFilter("search")(toLatinDigits(e.target.value).replace(/\D/g, ""))}
-          className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg"
-        />
-
-        <select value={status} onChange={(e) => setFilter("status")(e.target.value)} className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg">
-          <option value="">اختر الحالة</option>
-          {ORDER_STATUSES.map((s) => (
-            <option key={s} value={s}>{statusLabel(s)}</option>
-          ))}
-        </select>
-
-        <MerchantSelect value={merchant} onChange={setFilter("merchant")} className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg" />
-
-        <CourierSelect value={courier} onChange={setFilter("courier")} />
-
-        <input type="date" value={date} onChange={(e) => setFilter("date")(e.target.value)} className="flex-1 min-w-[200px] border rounded-lg p-3 text-lg" />
-
-        <button onClick={handlePrintTable} className="bg-green-500 text-white p-3 rounded-lg text-lg whitespace-nowrap cursor-pointer">
-          طباعة الجدول
-        </button>
-      </div>
-
-      {/* Summary */}
-      <div className="w-[98%] m-auto my-3">
-        <div className="w-full m-auto grid grid-cols-12 border-2 my-4 rounded-lg">
-          <div className="col-span-6 flex justify-center items-center gap-2 p-2 text-xl font-bold text-center">
-            عدد الاوردارات: <p>{result.total}</p>
-          </div>
-          <div className="col-span-6 flex justify-center items-center gap-2 p-2 text-xl font-bold text-center">
-            الإجمالي: <p>{result.totalCost}</p>
-          </div>
-        </div>
-        <OrdersHeader lastColumn="الأمر" selection={{ all: allSelected, onToggleAll: toggleAll }} />
-      </div>
-
-      {selectedOrders.length > 0 && (
-        <BulkActions
-          selected={selectedOrders}
-          onClear={() => setSelected({})}
-          onDone={() => {
-            setSelected({});
-            setReloadKey((k) => k + 1);
+    <>
+      <PageHeader
+        title="الشحنات"
+        actions={
+          <>
+            <Button variant="secondary" icon={<Printer className="size-4" />} onClick={printTable}>
+              طباعة الجدول
+            </Button>
+            <Link to="/orders/new">
+              <Button icon={<PackagePlus className="size-4" />}>شحنة جديدة</Button>
+            </Link>
+          </>
+        }
+      />
+      {!loading && (
+        <p className="-mt-4 mb-4 text-sm text-ink-2">
+          <span className="num">{total}</span> شحنة مفتوحة، إجمالي التحصيل <b className="text-ink"><Money value={totalCost} /></b>
+        </p>
+      )}
+      <Panel bodyClassName="space-y-4">
+        <OrderFilters value={filters} onChange={setFilters} statuses={ORDER_STATUSES} />
+        <DataTable
+          caption="الشحنات"
+          columns={orderColumns()}
+          rows={items}
+          rowKey={(o) => o._id}
+          loading={loading}
+          onRowClick={(o) => setDetailsId(o._id)}
+          selection={{ selected, onToggle: toggle, onToggleAll: toggleAll }}
+          rowActions={(o) => (
+            <Button variant="quiet" size="sm" icon={<Printer className="size-4" />} onClick={() => printLabel(o)} aria-label={`طباعة ملصق ${o.barcode}`} title="طباعة الملصق" />
+          )}
+          empty={{
+            icon: <Package />,
+            title: Object.values(filters).some(Boolean) ? "لا توجد شحنات تطابق البحث" : "لا توجد شحنات مفتوحة",
+            description: Object.values(filters).some(Boolean) ? "جرّب تغيير الفلاتر أو مسحها." : "أضف شحنة جديدة أو استورد ملف Excel.",
+            action: Object.values(filters).some(Boolean) ? (
+              <Button variant="secondary" onClick={() => setFilters({ search: "", status: "", merchant: "", courier: "", date: "" })}>
+                مسح الفلاتر
+              </Button>
+            ) : (
+              <Link to="/orders/new"><Button>شحنة جديدة</Button></Link>
+            ),
           }}
         />
-      )}
+        <Pagination page={page} pages={pages} onChange={(p) => { setPage(p); setSelected(new Set()); }} />
+      </Panel>
 
-      {/* Rows */}
-      {loading ? (
-        <p className="text-center my-4 text-xl">جاري التحميل...</p>
-      ) : result.items.length > 0 ? (
-        result.items.map((order, i) => (
-          <div key={order._id} className="w-[98%] m-auto">
-            <OrderRow
-              order={order}
-              index={(page - 1) * PAGE_SIZE + i + 1}
-              selected={!!selected[order._id]}
-              onToggle={() => toggle(order._id)}
-              actions={
-                <>
-                  {isAdmin && (
-                    <button className="bg-orange-400 px-3 py-1 rounded cursor-pointer" onClick={() => setEditingOrder(order)}>
-                      تعديل
-                    </button>
-                  )}
-                  <button onClick={() => printLabel(order)} className="bg-green-400 px-3 py-1 rounded cursor-pointer">
-                    طباعة
-                  </button>
-                  <button onClick={() => setDetailsId(order._id)} className="bg-blue-400 px-3 py-1 rounded cursor-pointer">
-                    تفاصيل
-                  </button>
-                </>
-              }
-            />
-          </div>
-        ))
-      ) : (
-        <p className="text-center my-4">لا توجد أوردرات</p>
-      )}
+      {selectedOrders.length > 0 && <BulkActions selected={selectedOrders} onClear={() => setSelected(new Set())} onDone={() => { setSelected(new Set()); reload(); }} />}
 
-      <Pagination page={page} pages={result.pages} onChange={goToPage} />
-
-      {detailsId && <OrderDetails orderId={detailsId} onClose={() => setDetailsId(null)} />}
-
-      {/* Edit Modal (admin) */}
-      {editingOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-edit w-[90%] md:w-[600px] rounded-lg p-6 relative">
-            <button className="absolute top-3 left-3 text-xl font-bold cursor-pointer" onClick={() => setEditingOrder(null)}>
-              ✕
-            </button>
-            <h2 className="text-2xl font-bold mb-4 text-center">تعديل الطلب</h2>
-            <OrderForm initialData={editingOrder} onSubmit={handleUpdate} role={user?.role} />
-          </div>
-        </div>
-      )}
-    </div>
+      <OrderDetailsDrawer orderId={detailsId} onClose={() => setDetailsId(null)} onEdit={admin ? (o) => { setDetailsId(null); setEditing(o); } : undefined} />
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={editing ? `تعديل الشحنة ${editing.barcode}` : ""} className="w-[min(40rem,calc(100vw-2rem))]">
+        {editing && <OrderForm initialData={editing} onSubmit={saveEdit} role={user?.role} />}
+      </Modal>
+    </>
   );
 }

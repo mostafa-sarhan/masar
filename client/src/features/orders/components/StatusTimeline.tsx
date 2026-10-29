@@ -1,20 +1,38 @@
+import type { OrderStatus } from "@masar/shared";
 import { statusLabel } from "@/lib/order-status";
-import type { StatusEvent } from "@/lib/types";
-import { displayTimezone } from "@/lib/locale";
+import { formatDateTime } from "@/lib/format-date";
+import { cn } from "@/lib/cn";
 
-const when = (at: string) => new Date(at).toLocaleString("ar-EG", { timeZone: displayTimezone(), dateStyle: "medium", timeStyle: "short" });
+const DOT: Record<OrderStatus, string> = {
+  pending: "bg-ink-3",
+  with_courier: "bg-carbon",
+  exchanged: "bg-late",
+  delivered: "bg-ok",
+  returned: "bg-late",
+  refused: "bg-stamp",
+};
 
-// Vertical status timeline. `showWho` adds who made each change (staff only).
-export default function StatusTimeline({ events = [], showWho = false }: { events?: StatusEvent[]; showWho?: boolean }) {
-  if (!events.length) return <p className="opacity-70">لا يوجد سجل حالات</p>;
+interface Event {
+  status: OrderStatus;
+  at: string;
+  by?: { email?: string; role?: string };
+  reason?: string | null;
+}
+
+// Status history, newest last. `showWho` adds who made each change (staff only).
+export default function StatusTimeline({ events = [], showWho = false }: { events?: Event[]; showWho?: boolean }) {
+  if (!events.length) return <p className="text-sm text-ink-3">لا يوجد سجل حالات بعد.</p>;
   return (
-    <ol className="border-s-2 border-orange-400 ps-4 space-y-3 text-start">
+    <ol className="relative space-y-4 ps-5 before:absolute before:inset-y-1.5 before:start-[5px] before:w-px before:bg-rule">
       {events.map((e, i) => (
         <li key={i} className="relative">
-          <span className="absolute -start-[1.4rem] top-1 w-3 h-3 rounded-full bg-orange-400" />
-          <p className="font-bold">{statusLabel(e.status)}</p>
-          <p className="text-sm opacity-80">{when(e.at)}{showWho && e.by?.email ? ` · ${e.by.email}` : ""}</p>
-          {e.reason && <p className="text-sm">السبب: {e.reason}</p>}
+          <span className={cn("absolute -start-5 top-1.5 size-[11px] rounded-full ring-4 ring-sheet", DOT[e.status])} aria-hidden />
+          <p className={cn("text-sm font-medium", i === events.length - 1 ? "text-ink" : "text-ink-2")}>{statusLabel(e.status)}</p>
+          <p className="num text-xs text-ink-3">
+            {formatDateTime(e.at)}
+            {showWho && e.by?.email ? ` — ${e.by.email}` : showWho && e.by?.role === "merchant_api" ? " — عبر الربط مع التاجر" : ""}
+          </p>
+          {e.reason && <p className="mt-1 text-sm text-ink-2">السبب: {e.reason}</p>}
         </li>
       ))}
     </ol>

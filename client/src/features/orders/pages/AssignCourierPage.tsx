@@ -1,115 +1,114 @@
-import Money from "@/components/ui/Money";
-import { useState, useRef } from "react";
+import { useRef, useState, type FormEvent } from "react";
+import { ScanLine, Printer, Truck, Trash2 } from "lucide-react";
+import { getOrderByBarcode, bulkAssign } from "../api/orders-api";
+import { orderColumns } from "../components/order-columns";
+import { printCourierSheet } from "../lib/print";
 import CourierSelect from "@/features/couriers/components/CourierSelect";
-import { OrdersHeader, OrderRow } from "@/features/orders/components/OrderRow";
-import { getOrderByBarcode, bulkAssign } from "@/features/orders/api/orders-api";
+import { PageHeader, Panel } from "@/components/ui/Panel";
+import { DataTable } from "@/components/ui/DataTable";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Field";
+import Money from "@/components/ui/Money";
+import { useFeedback } from "@/components/ui/feedback-context";
 import { errorMessage } from "@/lib/errors";
-import { printCourierSheet } from "@/features/orders/lib/print";
 import type { Order, Courier } from "@/lib/types";
 
-// Scan pending orders, then hand them all to one courier in a single request.
+// Scan pending orders (barcode reader or typing), then hand them all to one courier in one request.
 export default function AssignCourierPage() {
-  const [barcodeInput, setBarcodeInput] = useState("");
-  const [scannedOrders, setScannedOrders] = useState<Order[]>([]);
+  const { toast, confirm } = useFeedback();
+  const [barcode, setBarcode] = useState("");
+  const [scanned, setScanned] = useState<Order[]>([]);
   const [courier, setCourier] = useState("");
   const [couriers, setCouriers] = useState<Courier[]>([]);
-  const [assigned, setAssigned] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const scanning = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
 
-  const totalCost = scannedOrders.reduce((sum, order) => sum + Number(order.cost || 0), 0);
-  const courierName = couriers.find((c) => c._id === courier)?.name || "";
+  const total = scanned.reduce((sum, o) => sum + Number(o.cost || 0), 0);
+  const courierName = couriers.find((c) => c._id === courier)?.name ?? "";
 
-  const inputRef = useRef<HTMLInputElement>(null);
-  const isScanningRef = useRef(false);
-
-  const handleScan = async (rawValue: string) => {
-    const barcode = rawValue.trim();
-    if (!barcode || isScanningRef.current) return;
-    isScanningRef.current = true;
-
+  const scan = async (e: FormEvent) => {
+    e.preventDefault();
+    const code = barcode.trim();
+    if (!code || scanning.current) return;
+    scanning.current = true;
     try {
-      if (scannedOrders.some((o) => o.barcode === barcode)) {
-        alert("المنتج تم إضافته مسبقًا");
-        return;
-      }
-      const order = await getOrderByBarcode(barcode);
-      if (order.status !== "pending" || order.isArchived) {
-        alert("هذا المنتج لا يمكن إضافته لأنه غير متاح للإضافة");
-        return;
-      }
-      setScannedOrders((prev) => [...prev, order]);
-      setAssigned(false);
+      if (scanned.some((o) => o.barcode === code)) return toast("هذه الشحنة مضافة بالفعل", "info");
+      const order = await getOrderByBarcode(code);
+      if (order.status !== "pending" || order.isArchived) return toast(`الشحنة ${code} ليست في المخزن، لا يمكن تسليمها`, "danger");
+      setScanned((prev) => [order, ...prev]);
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
     } finally {
-      setBarcodeInput("");
-      isScanningRef.current = false;
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setBarcode("");
+      scanning.current = false;
+      input.current?.focus();
     }
   };
 
-  const handleAssign = async () => {
-    if (!courier) return alert("من فضلك اختر مندوب قبل التأكيد");
-    if (scannedOrders.length === 0) return alert("لا توجد أوردرات");
-
+  const assign = async () => {
+    if (!(await confirm({ title: `تسليم ${scanned.length} شحنة إلى ${courierName}؟`, confirmLabel: "تسليم للمندوب" }))) return;
     try {
-      await bulkAssign(scannedOrders.map((o) => o._id), courier);
-      alert("تم تحديث المندوب لجميع المنتجات");
-      setScannedOrders((prev) => prev.map((o) => ({ ...o, status: "with_courier" as const, courier: { _id: courier, name: courierName } })));
-      setAssigned(true);
+      setBusy(true);
+      await bulkAssign(scanned.map((o) => o._id), courier);
+      toast(`تم تسليم ${scanned.length} شحنة إلى ${courierName}`);
+      printCourierSheet(scanned, courierName);
+      setScanned([]);
     } catch (err) {
-      alert(errorMessage(err)); // nothing was changed
+      toast(errorMessage(err), "danger");
+    } finally {
+      setBusy(false);
     }
-  };
-
-  const handlePrintAll = () => {
-    if (scannedOrders.length === 0) return alert("لا توجد أوردرات للطباعة");
-    if (!courier) return alert("من فضلك اختر مندوب للطباعة");
-    printCourierSheet(scannedOrders, courierName);
   };
 
   return (
-    <div className="w-[98%] m-auto mt-4">
-      <div className="flex gap-4 mb-4 items-center">
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Scan barcode here..."
-          value={barcodeInput}
-          onChange={(e) => setBarcodeInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleScan(barcodeInput);
-            }
-          }}
-          autoFocus
-          className="border-2 rounded px-3 py-2 w-64"
-        />
+    <>
+      <PageHeader title="تسليم للمناديب" description="امسح باركود الشحنات الموجودة في المخزن، ثم اختر المندوب وسلّمها دفعة واحدة." />
+      <div className="grid gap-5 lg:grid-cols-[22rem_1fr]">
+        <Panel title="المسح والتسليم" bodyClassName="space-y-4">
+          <form onSubmit={scan}>
+            <Field label="الباركود" hint="اضغط Enter بعد كل باركود، أو استخدم قارئ الباركود">
+              {(p) => (
+                <div className="relative">
+                  <ScanLine className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-ink-3" aria-hidden />
+                  <Input {...p} ref={input} autoFocus dir="ltr" inputMode="numeric" value={barcode} onChange={(e) => setBarcode(e.target.value)} className="ps-9 text-base" autoComplete="off" />
+                </div>
+              )}
+            </Field>
+          </form>
+          <Field label="المندوب">{(p) => <CourierSelect {...p} value={courier} onChange={setCourier} onLoaded={setCouriers} placeholder="اختر المندوب" />}</Field>
+          <div className="rounded-md bg-sheet-2 px-4 py-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-ink-2">عدد الشحنات</span>
+              <b className="num text-ink">{scanned.length}</b>
+            </div>
+            <div className="mt-1 flex justify-between">
+              <span className="text-ink-2">إجمالي التحصيل</span>
+              <b className="text-ink"><Money value={total} /></b>
+            </div>
+          </div>
+          <Button className="w-full" size="lg" icon={<Truck className="size-4" />} disabled={!courier || !scanned.length} loading={busy} onClick={assign}>
+            تسليم وطباعة كشف المندوب
+          </Button>
+          {scanned.length > 0 && courier && (
+            <Button variant="quiet" className="w-full" icon={<Printer className="size-4" />} onClick={() => printCourierSheet(scanned, courierName)}>
+              طباعة الكشف فقط
+            </Button>
+          )}
+        </Panel>
+        <Panel title="الشحنات الممسوحة">
+          <DataTable
+            caption="الشحنات الممسوحة"
+            columns={orderColumns(["barcode", "customer", "address", "merchant", "cost"])}
+            rows={scanned}
+            rowKey={(o) => o._id}
+            rowActions={(o) => (
+              <Button variant="quiet" size="sm" icon={<Trash2 className="size-4" />} aria-label={`إزالة ${o.barcode}`} title="إزالة من القائمة" onClick={() => setScanned((s) => s.filter((x) => x._id !== o._id))} />
+            )}
+            empty={{ icon: <ScanLine />, title: "لم تُمسح أي شحنة بعد", description: "ابدأ بمسح أول باركود." }}
+          />
+        </Panel>
       </div>
-
-      <div className="flex gap-4 items-center mb-4">
-        <CourierSelect value={courier} onChange={setCourier} onLoaded={setCouriers} />
-        <button onClick={handleAssign} disabled={assigned} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:opacity-50">
-          تأكيد
-        </button>
-        <button onClick={handlePrintAll} className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600">
-          طباعة
-        </button>
-      </div>
-
-      <div className="text-start pb-4 flex gap-16">
-        <div className="text-lg font-bold">عدد الشحنات: {scannedOrders.length}</div>
-        <div className="text-lg font-bold">المبلغ الكلي: <Money value={totalCost} /></div>
-      </div>
-
-      <OrdersHeader />
-      <div className="my-2">
-        {scannedOrders.length > 0 ? (
-          scannedOrders.map((order, index) => <OrderRow key={order._id} order={order} index={index + 1} />)
-        ) : (
-          <p className="text-center my-4">لا توجد أوردرات</p>
-        )}
-      </div>
-    </div>
+    </>
   );
 }

@@ -1,37 +1,55 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Printer } from "lucide-react";
 import type { CreateOrderInput } from "@masar/shared";
-import { createOrder } from "@/features/orders/api/orders-api";
+import { createOrder } from "../api/orders-api";
+import OrderForm from "../components/OrderForm";
+import { printLabel } from "../lib/print";
+import { PageHeader, Panel } from "@/components/ui/Panel";
+import { Button } from "@/components/ui/Button";
+import { useFeedback } from "@/components/ui/feedback-context";
 import { errorMessage } from "@/lib/errors";
-import OrderForm from "@/features/orders/components/OrderForm";
+import type { Order } from "@/lib/types";
 
 export default function NewOrderPage() {
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const { toast } = useFeedback();
   const [formKey, setFormKey] = useState(0);
+  const [last, setLast] = useState<Order | null>(null);
 
-  const flash = (type: "success" | "error", text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 2500);
-  };
-
-  const handleSubmit = async (data: CreateOrderInput) => {
+  const submit = async (data: CreateOrderInput) => {
     try {
       const order = await createOrder(data);
-      flash("success", `تم إضافة الطلب بنجاح! الباركود: ${order.barcode}`);
-      setFormKey((k) => k + 1); // clear the form
+      setLast(order);
+      setFormKey((k) => k + 1); // clear the form for the next one
+      toast(`تم إنشاء الشحنة ${order.barcode}`);
     } catch (err) {
-      flash("error", errorMessage(err));
+      toast(errorMessage(err), "danger");
     }
   };
 
   return (
-    <div className="w-[90%] m-auto rounded-lg p-4">
-      <h2 className="text-2xl font-bold mb-4">إضافة طلب جديد</h2>
-      {message && (
-        <div className={`text-xl p-2 my-2 rounded ${message.type === "success" ? "bg-green-200 text-green-800" : "bg-red-200 text-red-900"}`}>
-          {message.text}
+    <div className="mx-auto max-w-3xl">
+      <PageHeader title="شحنة جديدة" description="يحصل كل طلب على باركود ورابط تتبع للعميل تلقائيًا." />
+      {last && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ok/40 bg-ok-soft px-4 py-3 text-sm">
+          <span className="text-ok">
+            تم إنشاء الشحنة <b className="num">{last.barcode}</b> للعميل {last.fullName}.
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" icon={<Printer className="size-4" />} onClick={() => printLabel(last)}>
+              طباعة الملصق
+            </Button>
+            <Link to="/orders">
+              <Button size="sm" variant="quiet">
+                عرض الشحنات
+              </Button>
+            </Link>
+          </div>
         </div>
       )}
-      <OrderForm key={formKey} onSubmit={handleSubmit} />
+      <Panel>
+        <OrderForm key={formKey} onSubmit={submit} />
+      </Panel>
     </div>
   );
 }

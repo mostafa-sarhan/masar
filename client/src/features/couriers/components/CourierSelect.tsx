@@ -1,35 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SelectHTMLAttributes } from "react";
 import { getCouriers } from "@/lib/resources-api";
+import { Select } from "@/components/ui/Field";
 import type { Courier } from "@/lib/types";
 
-interface CourierSelectProps {
+type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, "onChange" | "value"> & {
   value: string;
   onChange(id: string): void;
   onLoaded?(couriers: Courier[]): void;
   placeholder?: string;
-  className?: string;
-}
+};
 
-// Courier dropdown; value is the courier id. onLoaded receives the list (for names).
-export default function CourierSelect({ value, onChange, onLoaded, placeholder = "-- اختر المندوب --", className = "border-2 rounded-lg px-3 py-2 max-w-full" }: CourierSelectProps) {
+// Courier dropdown; value is the courier id. `onLoaded` receives the list (for names).
+export default function CourierSelect({ value, onChange, onLoaded, placeholder = "كل المناديب", ...rest }: Props) {
   const [couriers, setCouriers] = useState<Courier[]>([]);
-
   useEffect(() => {
     getCouriers()
       .then((list) => {
         setCouriers(list);
         onLoaded?.(list);
       })
-      .catch((err) => console.error("فشل جلب المندوبين:", err));
+      .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
+    <Select value={value} onChange={(e) => onChange(e.target.value)} {...rest}>
       <option value="">{placeholder}</option>
       {couriers.map((c) => (
-        <option key={c._id} value={c._id}>{c.name}</option>
+        <option key={c._id} value={c._id}>
+          {c.name}
+        </option>
       ))}
-    </select>
+    </Select>
   );
 }

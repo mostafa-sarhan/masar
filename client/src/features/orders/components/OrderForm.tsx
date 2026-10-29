@@ -3,80 +3,78 @@ import type { CreateOrderInput, OrderUpdate, OrderStatus, Role } from "@masar/sh
 import type { Order } from "@/lib/types";
 import { toLatinDigits } from "@/lib/digits";
 import { nextStatuses, statusLabel } from "@/lib/order-status";
+import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { Button } from "@/components/ui/Button";
 import CourierSelect from "@/features/couriers/components/CourierSelect";
 import MerchantSelect from "@/features/merchants/components/MerchantSelect";
 
-// Create (no initialData) or admin edit. On edit only the fields that changed are sent.
 type OrderFormProps =
-  | { initialData?: undefined; onSubmit(data: CreateOrderInput): void; role?: Role }
-  | { initialData: Order; onSubmit(changes: OrderUpdate): void; role?: Role };
+  | { initialData?: undefined; onSubmit(data: CreateOrderInput): Promise<void>; role?: Role; submitLabel?: string }
+  | { initialData: Order; onSubmit(changes: OrderUpdate): Promise<void>; role?: Role; submitLabel?: string };
 
-type FormState = { fullName: string; address: string; phone: string; cost: string; merchant: string; courier: string; status: OrderStatus };
+type FormState = { fullName: string; address: string; phone: string; cost: string; merchant: string; courier: string; description: string; status: OrderStatus };
 
-export default function OrderForm({ initialData, onSubmit, role }: OrderFormProps) {
+// Create, or (owner/admin) edit. On edit only the changed fields are sent.
+export default function OrderForm({ initialData, onSubmit, role, submitLabel }: OrderFormProps) {
   const editing = !!initialData;
-  const start = {
-    fullName: initialData?.fullName || "",
-    address: initialData?.address || "",
-    phone: initialData?.phone || "",
-    cost: String(initialData?.cost ?? ""),
-    merchant: initialData?.merchant?._id || "",
-    courier: initialData?.courier?._id || "",
-    status: (initialData?.status || "pending") as OrderStatus,
+  const start: FormState = {
+    fullName: initialData?.fullName ?? "",
+    address: initialData?.address ?? "",
+    phone: initialData?.phone ?? "",
+    cost: initialData ? String(initialData.cost) : "",
+    merchant: initialData?.merchant?._id ?? "",
+    courier: initialData?.courier?._id ?? "",
+    description: initialData?.description ?? "",
+    status: initialData?.status ?? "pending",
   };
   const [form, setForm] = useState<FormState>(start);
+  const [saving, setSaving] = useState(false);
   const set = (name: keyof FormState) => (value: string) => setForm((f) => ({ ...f, [name]: value }));
   const statusOptions = editing ? [start.status, ...nextStatuses(start.status, role)] : [];
 
-  const normalize = (f: FormState) => ({ ...f, cost: Number(f.cost), courier: f.courier || null });
-
-  const handleSubmit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const { status, courier, ...data } = normalize(form);
-    if (!initialData) return (onSubmit as (d: CreateOrderInput) => void)(courier ? { ...data, courier } : data);
-
-    const before: Record<string, unknown> = normalize(start);
-    const after = { ...data, courier, status };
-    (onSubmit as (c: OrderUpdate) => void)(Object.fromEntries(Object.entries(after).filter(([k, v]) => v !== before[k])) as OrderUpdate);
+    const data = { fullName: form.fullName, phone: form.phone, address: form.address, cost: Number(form.cost), merchant: form.merchant, description: form.description || undefined };
+    try {
+      setSaving(true);
+      if (!initialData) {
+        await (onSubmit as (d: CreateOrderInput) => Promise<void>)({ ...data, ...(form.courier && { courier: form.courier }) });
+        return;
+      }
+      const after: Record<string, unknown> = { ...data, description: form.description, courier: form.courier || null, status: form.status };
+      const before: Record<string, unknown> = { ...start, cost: Number(start.cost), courier: start.courier || null };
+      await (onSubmit as (c: OrderUpdate) => Promise<void>)(Object.fromEntries(Object.entries(after).filter(([k, v]) => v !== before[k])) as OrderUpdate);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const field = (label: string, name: keyof FormState, transform: (v: string) => string = (v) => v) => (
-    <div className="flex flex-col">
-      <label className="mb-1 text-2xl text-right">{label}</label>
-      <input value={form[name]} onChange={(e) => set(name)(transform(e.target.value))} className="border rounded-lg p-2" required />
-    </div>
-  );
-
   return (
-    <form className="grid grid-cols-2 gap-8 w-[90%]" onSubmit={handleSubmit}>
-      {field("اسم العميل", "fullName")}
-      {field("رقم الهاتف", "phone", toLatinDigits)}
-      {field("العنوان", "address")}
-      {field("المبلغ", "cost", toLatinDigits)}
-
-      <div className="flex flex-col">
-        <label className="mb-1 text-2xl text-right">اسم الشركة</label>
-        <MerchantSelect value={form.merchant} onChange={set("merchant")} required />
-      </div>
-
-      <div className="flex flex-col">
-        <label className="mb-1 text-2xl text-right">اسم المندوب</label>
-        <CourierSelect value={form.courier} onChange={set("courier")} placeholder="لم يحدد" />
-      </div>
-
+    <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+      <Field label="اسم العميل">{(p) => <Input {...p} value={form.fullName} onChange={(e) => set("fullName")(e.target.value)} required maxLength={100} autoComplete="off" />}</Field>
+      <Field label="رقم الهاتف">{(p) => <Input {...p} dir="ltr" inputMode="tel" value={form.phone} onChange={(e) => set("phone")(toLatinDigits(e.target.value))} required pattern="\+?\d{6,15}" title="أرقام فقط، من 6 إلى 15 رقمًا" />}</Field>
+      <Field label="العنوان" className="sm:col-span-2">{(p) => <Input {...p} value={form.address} onChange={(e) => set("address")(e.target.value)} required maxLength={300} />}</Field>
+      <Field label="المبلغ المطلوب تحصيله">{(p) => <Input {...p} dir="ltr" inputMode="decimal" value={form.cost} onChange={(e) => set("cost")(toLatinDigits(e.target.value))} required pattern="\d+(\.\d{1,2})?" title="مبلغ صحيح" />}</Field>
+      <Field label="التاجر">{(p) => <MerchantSelect {...p} value={form.merchant} onChange={set("merchant")} required />}</Field>
+      <Field label="المندوب" hint={editing ? undefined : "اختياري: اختر مندوبًا لتسليمه الشحنة مباشرة"}>{(p) => <CourierSelect {...p} value={form.courier} onChange={set("courier")} placeholder="بدون مندوب" />}</Field>
       {editing && (
-        <div className="flex flex-col">
-          <label className="mb-1 text-2xl text-right">الحالة</label>
-          <select value={form.status} onChange={(e) => set("status")(e.target.value)} className="border rounded-lg p-2">
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>{statusLabel(s)}</option>
-            ))}
-          </select>
-        </div>
+        <Field label="الحالة" hint="الحالات المتاحة فقط حسب مسار الشحنة">
+          {(p) => (
+            <Select {...p} value={form.status} onChange={(e) => set("status")(e.target.value)}>
+              {statusOptions.map((s) => (
+                <option key={s} value={s}>
+                  {statusLabel(s)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
       )}
-
-      <div className="col-span-2">
-        <button className="bg-blue-500 text-white text-2xl w-full py-2 rounded cursor-pointer">حفظ</button>
+      <Field label="ملاحظات" className="sm:col-span-2">{(p) => <Textarea {...p} value={form.description} onChange={(e) => set("description")(e.target.value)} maxLength={1000} placeholder="مثال: الاتصال قبل الوصول" />}</Field>
+      <div className="sm:col-span-2">
+        <Button type="submit" loading={saving} size="lg" className="w-full sm:w-auto">
+          {submitLabel ?? (editing ? "حفظ التعديلات" : "إنشاء الشحنة")}
+        </Button>
       </div>
     </form>
   );

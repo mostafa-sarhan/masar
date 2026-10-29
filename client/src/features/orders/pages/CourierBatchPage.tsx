@@ -1,161 +1,170 @@
+import { useState } from "react";
+import { HandCoins, Bike } from "lucide-react";
 import type { OrderStatus } from "@masar/shared";
+import { getOrders, bulkStatus } from "../api/orders-api";
+import { orderColumns } from "../components/order-columns";
+import CourierSelect from "@/features/couriers/components/CourierSelect";
+import { getSettlement } from "@/lib/resources-api";
+import { useAuth } from "@/app/auth-context";
+import { PageHeader, Panel } from "@/components/ui/Panel";
+import { DataTable } from "@/components/ui/DataTable";
+import { Button } from "@/components/ui/Button";
+import { Field, Input, Select } from "@/components/ui/Field";
+import { Notice } from "@/components/ui/Feedback";
+import { StatusBadge } from "@/components/ui/Status";
+import Money from "@/components/ui/Money";
+import { useFeedback } from "@/components/ui/feedback-context";
+import { errorMessage } from "@/lib/errors";
+import { nextStatuses, statusLabel } from "@/lib/order-status";
+import { isAdmin as isAdminRole } from "@/lib/roles";
 import type { Order, Courier, Summary, ReportMeta } from "@/lib/types";
 
-// An open order plus the outcome chosen on this page (saved together).
-type BatchOrder = Order & { nextStatus?: OrderStatus };
-import Money from "@/components/ui/Money";
-import { useState } from "react";
-import CourierSelect from "@/features/couriers/components/CourierSelect";
-import { OrdersHeader, OrderRow } from "@/features/orders/components/OrderRow";
-import { getOrders, bulkStatus } from "@/features/orders/api/orders-api";
-import { getSettlement } from "@/lib/resources-api";
-import { errorMessage } from "@/lib/errors";
-import { useAuth } from "@/app/auth-context";
-import { isAdmin as isAdminRole } from "@/lib/roles";
-import { nextStatuses, statusLabel } from "@/lib/order-status";
-
 const MAX_ORDERS = 100;
+type BatchOrder = Order & { outcome?: OrderStatus };
 
-// A courier's open orders: set each result, save the batch, see the settlement (calculated on the server).
-export default function Alldelivery() {
+// End of the courier's day: set each order's result, save them together, see what the courier hands over.
+export default function CourierBatchPage() {
   const { user } = useAuth();
-  const isAdmin = isAdminRole(user?.role);
-
+  const admin = isAdminRole(user?.role);
+  const { toast, confirm } = useFeedback();
   const [courier, setCourier] = useState("");
   const [couriers, setCouriers] = useState<Courier[]>([]);
   const [orders, setOrders] = useState<BatchOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [courierFee, setCourierFee] = useState("");
   const [settlement, setSettlement] = useState<(Summary & { fees: ReportMeta["fees"] }) | null>(null);
-
   const courierName = couriers.find((c) => c._id === courier)?.name;
 
   const loadSettlement = async (list: BatchOrder[], fee = courierFee) => {
     if (!list.length) return setSettlement(null);
-    const { data, meta } = await getSettlement(list.map((o) => o._id), isAdmin && fee !== "" ? { courierFee: Number(fee) } : {});
+    const { data, meta } = await getSettlement(list.map((o) => o._id), admin && fee !== "" ? { courierFee: Number(fee) } : {});
     setSettlement({ ...data, fees: meta.fees });
   };
 
-  const loadOrders = async (courierId: string) => {
+  const selectCourier = async (id: string) => {
+    setCourier(id);
     setOrders([]);
     setSettlement(null);
-    if (!courierId) return;
+    if (!id) return;
     try {
       setLoading(true);
-      const { data, meta } = await getOrders({ courier: courierId, status: "with_courier", limit: MAX_ORDERS });
+      const { data, meta } = await getOrders({ courier: id, status: "with_courier", limit: MAX_ORDERS });
       setOrders(data);
       setTotal(meta.total);
       await loadSettlement(data);
     } catch (err) {
-      alert(errorMessage(err));
+      toast(errorMessage(err), "danger");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectCourier = (courierId: string) => {
-    setCourier(courierId);
-    loadOrders(courierId);
-  };
-
-  const handleStatusChange = (orderId: string, status: OrderStatus) =>
-    setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, nextStatus: status } : o)));
-
-  // Rows the user didn't touch count as delivered (the courier's default outcome).
-  const handleSaveAll = async () => {
-    const updates = orders
-      .filter((o) => o.status === "with_courier")
-      .map((o) => ({ id: o._id, status: o.nextStatus || "delivered" }))
-      .filter((u) => u.status !== "with_courier");
+  // Untouched rows count as delivered, the courier's usual outcome.
+  const save = async () => {
+    const updates = orders.filter((o) => o.status === "with_courier").map((o) => ({ id: o._id, status: o.outcome ?? ("delivered" as OrderStatus) })).filter((u) => u.status !== "with_courier");
     if (!updates.length) return;
-
+    const delivered = updates.filter((u) => u.status === "delivered").length;
+    if (!(await confirm({ title: `حفظ نتائج ${updates.length} شحنة؟`, description: `${delivered} تم التسليم، ${updates.length - delivered} نتائج أخرى. لن يُحفظ شيء إذا تعذّر حفظ أي شحنة.`, confirmLabel: "حفظ النتائج" }))) return;
     try {
-      setLoading(true);
+      setSaving(true);
       await bulkStatus(updates);
       const byId = new Map(updates.map((u) => [u.id, u.status]));
-      const saved: BatchOrder[] = orders.map((o) => (byId.has(o._id) ? { ...o, status: byId.get(o._id)!, nextStatus: undefined } : o));
+      const saved: BatchOrder[] = orders.map((o) => (byId.has(o._id) ? { ...o, status: byId.get(o._id)!, outcome: undefined } : o));
       setOrders(saved);
       await loadSettlement(saved);
-      alert("تم حفظ التعديلات بنجاح ✅");
+      toast("تم حفظ نتائج المندوب");
     } catch (err) {
-      alert(errorMessage(err)); // validation failed: nothing was saved
+      toast(errorMessage(err), "danger");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const notDelivered = settlement ? settlement.total.amount - settlement.money.deliveredTotal : 0;
+  const money = settlement?.money;
+  const open = orders.filter((o) => o.status === "with_courier").length;
 
   return (
-    <div className="w-[98%] m-auto mt-4">
-      <div className="flex gap-4 items-center mb-4">
-        <CourierSelect value={courier} onChange={handleSelectCourier} onLoaded={setCouriers} />
-        {isAdmin && (
-          <>
-            <span>عمولة المندوب:</span>
-            <input
-              type="number"
-              min="0"
-              placeholder={String(settlement?.fees.courier ?? "")}
-              value={courierFee}
-              onChange={(e) => setCourierFee(e.target.value)}
-              onBlur={() => loadSettlement(orders).catch((err) => alert(errorMessage(err)))}
-              className="border rounded px-2 py-1 w-24"
-            />
-          </>
-        )}
-      </div>
-
-      {loading && <p className="text-center my-4 text-xl">جاري تحميل الأوردرات...</p>}
-      {total > MAX_ORDERS && <p className="text-center text-yellow-400">يتم عرض أول {MAX_ORDERS} من {total} أوردر</p>}
-
-      {courier && settlement && (
-        <div className="rounded-lg p-4 mb-4 flex gap-8 justify-between items-center">
-          <div className="text-xl w-[50%] flex justify-around items-center">
-            <div>المندوب: <span className="font-bold mr-2">{courierName}</span></div>
-            <div>عدد الأوردرات: <span className="font-bold mr-2">{settlement.total.count}</span></div>
-          </div>
-          <div className="text-sm w-[50%]">
-            <div>إجمالي المبلغ: <span className="font-bold mr-2"><Money value={settlement.total.amount} /></span></div>
-            <div>المبلغ المستحق للمندوب: <span className="font-bold mr-2"><Money value={settlement.money.courierCommission} /></span></div>
-            <div>اجمالى المبلغ غير المسلّم: <span className="font-bold mr-2"><Money value={notDelivered} /></span></div>
-            <div>الباقي بعد خصم المستحق: <span className="font-bold mr-2"><Money value={settlement.money.afterCourier} /></span></div>
-          </div>
-        </div>
-      )}
-
-      <OrdersHeader />
-      <div className="my-2">
-        {orders.length > 0
-          ? orders.map((order, index) => (
-              <OrderRow
-                key={order._id}
-                order={order}
-                index={index + 1}
-                status={
-                  order.status === "with_courier" ? (
-                    <select value={order.nextStatus || "with_courier"} onChange={(e) => handleStatusChange(order._id, e.target.value as OrderStatus)} className="border px-2 py-1 rounded">
-                      {["with_courier", ...nextStatuses("with_courier", user?.role)].map((s) => (
-                        <option key={s} value={s}>{statusLabel(s)}</option>
+    <>
+      <PageHeader title="تسوية المناديب" description="اختر المندوب، حدد نتيجة كل شحنة، واحفظها دفعة واحدة." />
+      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+        <Panel
+          title={courierName ? `شحنات ${courierName}` : "شحنات المندوب"}
+          action={<CourierSelect value={courier} onChange={selectCourier} onLoaded={setCouriers} placeholder="اختر المندوب" className="h-9 w-48" aria-label="المندوب" />}
+          bodyClassName="space-y-3"
+        >
+          {total > MAX_ORDERS && <Notice tone="warn">تُعرض أول {MAX_ORDERS} شحنة من {total}.</Notice>}
+          <DataTable
+            caption="شحنات المندوب"
+            loading={loading}
+            columns={[
+              ...orderColumns<BatchOrder>(["barcode", "customer", "address", "cost"]),
+              {
+                key: "outcome",
+                header: "النتيجة",
+                cell: (o) =>
+                  o.status === "with_courier" ? (
+                    <Select
+                      value={o.outcome ?? "delivered"}
+                      onChange={(e) => setOrders((list) => list.map((x) => (x._id === o._id ? { ...x, outcome: e.target.value as OrderStatus } : x)))}
+                      className="h-9 w-36"
+                      aria-label={`نتيجة ${o.barcode}`}
+                    >
+                      {["with_courier" as OrderStatus, ...nextStatuses("with_courier", user?.role)].map((s) => (
+                        <option key={s} value={s}>
+                          {s === "with_courier" ? "لم تُحسم بعد" : statusLabel(s)}
+                        </option>
                       ))}
-                    </select>
+                    </Select>
                   ) : (
-                    statusLabel(order.status)
-                  )
-                }
-              />
-            ))
-          : !loading && <p className="text-center my-4">لا توجد أوردرات مع المندوب</p>}
-      </div>
+                    <StatusBadge status={o.status} pressed />
+                  ),
+              },
+            ]}
+            rows={orders}
+            rowKey={(o) => o._id}
+            empty={{ icon: <Bike />, title: courier ? "لا شحنات مع هذا المندوب" : "اختر مندوبًا", description: courier ? "كل شحناته محسومة." : "تظهر هنا الشحنات التي معه الآن." }}
+          />
+          {open > 0 && (
+            <div className="flex justify-end">
+              <Button icon={<HandCoins className="size-4" />} loading={saving} onClick={save}>
+                حفظ النتائج ({open})
+              </Button>
+            </div>
+          )}
+        </Panel>
 
-      {orders.some((o) => o.status === "with_courier") && (
-        <div className="my-4 flex justify-end">
-          <button onClick={handleSaveAll} className="bg-green-500 text-white px-4 py-2 rounded cursor-pointer">
-            حفظ الجميع
-          </button>
-        </div>
-      )}
-    </div>
+        <Panel title="التسوية" bodyClassName="space-y-3">
+          {admin && (
+            <Field label="عمولة المندوب لكل شحنة" hint="اتركها فارغة لاستخدام العمولة المحفوظة">
+              {(p) => <Input {...p} type="number" min={0} dir="ltr" placeholder={String(settlement?.fees.courier ?? "")} value={courierFee} onChange={(e) => setCourierFee(e.target.value)} onBlur={() => loadSettlement(orders).catch((err) => toast(errorMessage(err), "danger"))} />}
+            </Field>
+          )}
+          {settlement && money ? (
+            <dl className="divide-y divide-rule-soft text-sm">
+              {[
+                ["عدد الشحنات", <span className="num">{settlement.total.count}</span>],
+                ["إجمالي التحصيل", <Money value={settlement.total.amount} />],
+                ["تم تسليمه", <Money value={money.deliveredTotal} />],
+                ["غير مسلّم", <Money value={settlement.total.amount - money.deliveredTotal} />],
+                ["عمولة المندوب", <Money value={money.courierCommission} />],
+              ].map(([k, v]) => (
+                <div key={String(k)} className="flex justify-between py-2">
+                  <dt className="text-ink-2">{k}</dt>
+                  <dd className="text-ink">{v}</dd>
+                </div>
+              ))}
+              <div className="flex justify-between py-3">
+                <dt className="font-semibold text-ink">يسلّمه المندوب للخزنة</dt>
+                <dd className="text-lg font-semibold text-ink"><Money value={money.afterCourier} /></dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="text-sm text-ink-3">اختر مندوبًا لعرض التسوية.</p>
+          )}
+        </Panel>
+      </div>
+    </>
   );
 }
