@@ -5,7 +5,8 @@ import type { OrderUpdate } from "@masar/shared";
 import { exportOrders, updateOrder } from "../api/orders-api";
 import { usePagedOrders } from "../hooks/use-paged-orders";
 import { orderColumns } from "../components/order-columns";
-import { OrderFilters, type Filters } from "../components/OrderFilters";
+import { OrderFilters } from "../components/OrderFilters";
+import { EMPTY_FILTERS, type Filters } from "../lib/filters";
 import OrderDetailsDrawer from "../components/OrderDetailsDrawer";
 import BulkActions from "../components/BulkActions";
 import OrderForm from "../components/OrderForm";
@@ -42,6 +43,8 @@ export default function OrdersPage() {
     status: params.get("status") ?? "",
     merchant: params.get("merchant") ?? "",
     courier: params.get("courier") ?? "",
+    governorate: params.get("governorate") ?? "",
+    zone: params.get("zone") ?? "",
     date: params.get("date") ?? "",
   };
   const setFilters = useCallback(
@@ -128,7 +131,7 @@ export default function OrdersPage() {
             title: Object.values(filters).some(Boolean) ? "لا توجد شحنات تطابق البحث" : "لا توجد شحنات مفتوحة",
             description: Object.values(filters).some(Boolean) ? "جرّب تغيير الفلاتر أو مسحها." : "أضف شحنة جديدة أو استورد ملف Excel.",
             action: Object.values(filters).some(Boolean) ? (
-              <Button variant="secondary" onClick={() => setFilters({ search: "", status: "", merchant: "", courier: "", date: "" })}>
+              <Button variant="secondary" onClick={() => setFilters(EMPTY_FILTERS)}>
                 مسح الفلاتر
               </Button>
             ) : (

@@ -11,7 +11,7 @@ import { Field, Input } from "@/components/ui/Field";
 import Money from "@/components/ui/Money";
 import { useFeedback } from "@/components/ui/feedback-context";
 import { errorMessage } from "@/lib/errors";
-import type { Order, Courier } from "@/lib/types";
+import type { Order } from "@/lib/types";
 
 // Scan pending orders (barcode reader or typing), then hand them all to one courier in one request.
 export default function AssignCourierPage() {
@@ -19,13 +19,12 @@ export default function AssignCourierPage() {
   const [barcode, setBarcode] = useState("");
   const [scanned, setScanned] = useState<Order[]>([]);
   const [courier, setCourier] = useState("");
-  const [couriers, setCouriers] = useState<Courier[]>([]);
+  const [courierName, setCourierName] = useState("");
   const [busy, setBusy] = useState(false);
   const scanning = useRef(false);
   const input = useRef<HTMLInputElement>(null);
 
   const total = scanned.reduce((sum, o) => sum + Number(o.cost || 0), 0);
-  const courierName = couriers.find((c) => c._id === courier)?.name ?? "";
 
   const scan = async (e: FormEvent) => {
     e.preventDefault();
@@ -76,7 +75,7 @@ export default function AssignCourierPage() {
               )}
             </Field>
           </form>
-          <Field label="المندوب">{(p) => <CourierSelect {...p} value={courier} onChange={setCourier} onLoaded={setCouriers} placeholder="اختر المندوب" />}</Field>
+          <Field label="المندوب">{(p) => <CourierSelect {...p} value={courier} onChange={setCourier} onPick={(c) => setCourierName(c?.name ?? "")} placeholder="اختر المندوب" />}</Field>
           <div className="rounded-md bg-sheet-2 px-4 py-3 text-sm">
             <div className="flex justify-between">
               <span className="text-ink-2">عدد الشحنات</span>

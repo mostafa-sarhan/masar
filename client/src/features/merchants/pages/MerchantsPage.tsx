@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Store, Plus, KeyRound, UserPlus, Percent, Ban } from "lucide-react";
-import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, updateMerchant } from "@/lib/resources-api";
+import { getMerchants, createMerchant, rotateMerchantKey, revokeMerchantKey, updateMerchant, getZones, setMerchantZonePrices } from "@/lib/resources-api";
 import { createMerchantUser } from "@/lib/portals-api";
 import { PageHeader, Panel } from "@/components/ui/Panel";
 import { DataTable } from "@/components/ui/DataTable";
@@ -14,7 +14,9 @@ import { useFeedback } from "@/components/ui/feedback-context";
 import Money from "@/components/ui/Money";
 import { errorMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/format-date";
-import type { Merchant } from "@/lib/types";
+import type { Merchant, Zone } from "@/lib/types";
+import { Skeleton } from "@/components/ui/Feedback";
+import { toLatinDigits } from "@/lib/digits";
 
 type Dialog = { kind: "add" } | { kind: "key"; name: string; apiKey: string } | { kind: "fee"; merchant: Merchant } | { kind: "user"; merchant: Merchant } | null;
 
@@ -72,7 +74,15 @@ export default function MerchantsPage() {
               header: "مفتاح الربط",
               cell: (m) => (m.hasActiveKey ? <span dir="ltr" className="num text-ink-2">{m.apiKeyPrefix}…</span> : m.apiKeyRevokedAt ? <Badge tone="danger">ملغى</Badge> : <Badge>لا يوجد</Badge>),
             },
-            { key: "fee", header: "عمولة الشركة", cell: (m) => (m.companyFee === null ? <span className="text-ink-3">الافتراضية</span> : <Money value={m.companyFee} />) },
+            {
+              key: "fee",
+              header: "الأسعار",
+              cell: (m) => (
+                <span className="text-ink-2">
+                  {m.companyFee === null && !m.zonePrices?.length ? <span className="text-ink-3">الافتراضية</span> : <>{m.zonePrices?.length ? `${m.zonePrices.length} منطقة بسعر خاص` : <Money value={m.companyFee ?? 0} />}</>}
+                </span>
+              ),
+            },
             { key: "users", header: "حسابات البوابة", cell: (m) => (m.users?.length ? <span dir="ltr" className="text-ink-2">{m.users.join("، ")}</span> : <span className="text-ink-3">—</span>) },
             { key: "created", header: "أُضيف", hideOnMobile: true, cell: (m) => <span className="num text-ink-3">{formatDate(m.createdAt)}</span> },
           ]}
@@ -82,7 +92,7 @@ export default function MerchantsPage() {
                 {m.hasActiveKey ? "تغيير المفتاح" : "إنشاء مفتاح"}
               </Button>
               {m.hasActiveKey && <Button variant="quiet" size="sm" icon={<Ban className="size-4" />} onClick={() => revoke(m)} aria-label={`إلغاء مفتاح ${m.name}`} title="إلغاء المفتاح" />}
-              <Button variant="quiet" size="sm" icon={<Percent className="size-4" />} onClick={() => setDialog({ kind: "fee", merchant: m })} aria-label="عمولة الشركة" title="عمولة الشركة" />
+              <Button variant="quiet" size="sm" icon={<Percent className="size-4" />} onClick={() => setDialog({ kind: "fee", merchant: m })} aria-label="الأسعار" title="الأسعار" />
               <Button variant="quiet" size="sm" icon={<UserPlus className="size-4" />} onClick={() => setDialog({ kind: "user", merchant: m })} aria-label="حساب بوابة" title="إضافة حساب بوابة" />
             </div>
           )}
@@ -144,16 +154,29 @@ function AddMerchant({ open, onClose, onCreated }: { open: boolean; onClose(): v
   );
 }
 
+// The merchant's prices: a flat company fee (orders outside every zone) and its own price per zone.
+// Empty fields fall back to the defaults (settings / the zone's price).
 function FeeDialog({ merchant, onClose, onSaved }: { merchant: Merchant; onClose(): void; onSaved(): void }) {
   const { toast } = useFeedback();
   const [fee, setFee] = useState(merchant.companyFee === null ? "" : String(merchant.companyFee));
+  const [zones, setZones] = useState<Zone[] | null>(null);
+  const [prices, setPrices] = useState<Record<string, string>>(() => Object.fromEntries((merchant.zonePrices ?? []).map((p) => [p.zone, String(p.price)])));
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getZones().then(setZones).catch(() => setZones([]));
+  }, []);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
       setSaving(true);
       await updateMerchant(merchant._id, { companyFee: fee.trim() === "" ? null : Number(fee) });
-      toast("تم حفظ العمولة");
+      const zonePrices = Object.entries(prices)
+        .filter(([zone, price]) => price.trim() !== "" && zones?.some((z) => z._id === zone))
+        .map(([zone, price]) => ({ zone, price: Number(price) }));
+      await setMerchantZonePrices(merchant._id, zonePrices);
+      toast(`تم حفظ أسعار ${merchant.name}`);
       onSaved();
       onClose();
     } catch (err) {
@@ -163,11 +186,41 @@ function FeeDialog({ merchant, onClose, onSaved }: { merchant: Merchant; onClose
     }
   };
   return (
-    <Modal open onClose={onClose} title={`عمولة الشركة: ${merchant.name}`} description="تُطبَّق على الشحنات التي تُسلَّم بعد الحفظ. اتركها فارغة لاستخدام العمولة الافتراضية من الإعدادات.">
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="العمولة لكل شحنة مسلّمة">{(p) => <Input {...p} type="number" min={0} step="0.01" dir="ltr" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="الافتراضية" autoFocus />}</Field>
+    <Modal open onClose={onClose} title={`أسعار ${merchant.name}`} description="تُطبَّق على الشحنات الجديدة فقط. اترك الحقل فارغًا لاستخدام السعر الافتراضي.">
+      <form onSubmit={submit} className="space-y-5">
+        <div>
+          <p className="mb-2 text-sm font-medium text-ink">سعر الشحن حسب المنطقة</p>
+          {!zones ? (
+            <Skeleton className="h-24" />
+          ) : zones.length === 0 ? (
+            <p className="text-sm text-ink-3">لا توجد مناطق شحن بعد. أضفها من صفحة مناطق الشحن.</p>
+          ) : (
+            <ul className="divide-y divide-rule-soft rounded-md border border-rule">
+              {zones.map((z) => (
+                <li key={z._id} className="flex items-center gap-3 px-3 py-2">
+                  <label htmlFor={`zp-${z._id}`} className="min-w-0 flex-1 truncate text-sm text-ink">
+                    {z.name}
+                  </label>
+                  <Input
+                    id={`zp-${z._id}`}
+                    dir="ltr"
+                    inputMode="decimal"
+                    pattern="\d+(\.\d{1,2})?"
+                    className="h-9 w-28"
+                    placeholder={String(z.price)}
+                    value={prices[z._id] ?? ""}
+                    onChange={(e) => setPrices({ ...prices, [z._id]: toLatinDigits(e.target.value) })}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <Field label="عمولة الشركة خارج المناطق" hint="لكل شحنة مسلّمة لا تقع في أي منطقة">
+          {(p) => <Input {...p} dir="ltr" inputMode="decimal" pattern="\d+(\.\d{1,2})?" value={fee} onChange={(e) => setFee(toLatinDigits(e.target.value))} placeholder="الافتراضية" />}
+        </Field>
         <Button type="submit" loading={saving} className="w-full">
-          حفظ
+          حفظ الأسعار
         </Button>
       </form>
     </Modal>

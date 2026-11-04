@@ -26,6 +26,9 @@ const MESSAGES: Record<ErrorCode, string> = {
   IMPORT_INVALID: "الملف يحتوي على أخطاء، لم يُستورد شيء",
   RATE_LIMITED: "محاولات كثيرة، حاول بعد قليل",
   PAYLOAD_TOO_LARGE: "حجم البيانات أكبر من المسموح",
+  ZONE_OVERLAP: "بعض الأماكن تابعة لمنطقة أخرى بالفعل",
+  SHIPPING_FEE_LOCKED: "لا يمكن تعديل سعر الشحن بعد تسليم الشحنة",
+  DEMO_DISABLED: "هذا الإجراء غير متاح في النسخة التجريبية",
   INTERNAL_ERROR: "حدث خطأ في الخادم",
 };
 

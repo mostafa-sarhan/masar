@@ -3,7 +3,8 @@ import type { MerchantDeduction } from "@masar/shared";
 import { getSettings, updateSettings } from "@/lib/resources-api";
 import { useAuth } from "@/app/auth-context";
 import { PageHeader, Panel } from "@/components/ui/Panel";
-import { Field, Input, Select, Checkbox } from "@/components/ui/Field";
+import { Field, Input, Checkbox } from "@/components/ui/Field";
+import { Combobox, type ComboOption } from "@/components/ui/Combobox";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Feedback";
 import { useFeedback } from "@/components/ui/feedback-context";
@@ -21,7 +22,10 @@ const CURRENCIES: [string, string][] = [
   ["JOD", "دينار أردني"],
   ["USD", "دولار أمريكي"],
 ];
-const ZONES = ["Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "Asia/Kuwait", "Asia/Qatar", "Asia/Bahrain", "Asia/Muscat", "Asia/Amman", "Africa/Tripoli", "Africa/Casablanca", "UTC"];
+// Common zones first, then every zone the browser knows (searchable).
+const COMMON_ZONES = ["Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "Asia/Kuwait", "Asia/Qatar", "Asia/Bahrain", "Asia/Muscat", "Asia/Amman", "Africa/Tripoli", "Africa/Casablanca", "UTC"];
+const TIMEZONE_OPTIONS: ComboOption[] = [...new Set([...COMMON_ZONES, ...Intl.supportedValuesOf("timeZone")])].map((z) => ({ value: z, label: z }));
+const CURRENCY_OPTIONS: ComboOption[] = CURRENCIES.map(([code, name]) => ({ value: code, label: `${name} (${code})`, keywords: [code] }));
 
 type Form = { courierFee: string; companyFee: string; deductions: MerchantDeduction[]; archiveAfterDays: string; timezone: string; currency: string; labelName: string; logoUrl: string };
 const toForm = (s: TenantSettings): Form => ({
@@ -103,26 +107,10 @@ export default function SettingsPage() {
 
       <Panel title="المنطقة والعملة" bodyClassName="grid gap-4 sm:grid-cols-3">
         <Field label="المنطقة الزمنية" hint="تحدد بداية اليوم في التقارير">
-          {(p) => (
-            <Select {...p} value={form.timezone} onChange={(e) => set({ timezone: e.target.value })}>
-              {[...new Set([form.timezone, ...ZONES])].map((z) => (
-                <option key={z} value={z}>
-                  {z}
-                </option>
-              ))}
-            </Select>
-          )}
+          {(p) => <Combobox {...p} value={form.timezone} onChange={(timezone) => timezone && set({ timezone })} options={TIMEZONE_OPTIONS} clearable={false} />}
         </Field>
         <Field label="العملة">
-          {(p) => (
-            <Select {...p} value={form.currency} onChange={(e) => set({ currency: e.target.value })}>
-              {CURRENCIES.map(([code, name]) => (
-                <option key={code} value={code}>
-                  {name} ({code})
-                </option>
-              ))}
-            </Select>
-          )}
+          {(p) => <Combobox {...p} value={form.currency} onChange={(currency) => currency && set({ currency })} options={CURRENCY_OPTIONS} clearable={false} />}
         </Field>
         <Field label="الأرشفة بعد (أيام)" hint="من تاريخ إغلاق الشحنة">{(p) => <Input {...p} type="number" min={1} max={365} dir="ltr" value={form.archiveAfterDays} onChange={(e) => set({ archiveAfterDays: e.target.value })} required />}</Field>
       </Panel>

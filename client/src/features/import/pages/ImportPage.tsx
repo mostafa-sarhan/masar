@@ -5,14 +5,19 @@ import { PageHeader, Panel } from "@/components/ui/Panel";
 import { DataTable } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Feedback";
+import { placeLabel } from "@masar/shared";
 import Money from "@/components/ui/Money";
 import { useFeedback } from "@/components/ui/feedback-context";
 import { ApiError } from "@/lib/api-client";
 import { errorMessage } from "@/lib/errors";
 import type { ImportCheck } from "@/lib/types";
 
-const FIELDS: Record<string, string> = { fullName: "الاسم", phone: "الهاتف", address: "العنوان", cost: "المبلغ", merchant: "التاجر", description: "ملاحظات", reference: "المرجع" };
-const STEPS = ["حمّل النموذج واملأه، أو استخدم ملفك بنفس أسماء الأعمدة", "اختر الملف وافحصه: تظهر كل الأخطاء برقم الصف", "استورد عندما يخلو الملف من الأخطاء: إما كل الصفوف أو لا شيء"];
+const FIELDS: Record<string, string> = { fullName: "الاسم", phone: "الهاتف", governorate: "المحافظة", city: "المدينة", address: "العنوان", cost: "المبلغ", merchant: "التاجر", description: "ملاحظات", reference: "المرجع" };
+const STEPS = [
+  "حمّل النموذج واملأه، أو استخدم ملفك بنفس أسماء الأعمدة. المحافظة والمدينة تُكتبان بالعربي أو الإنجليزي، والأخطاء الإملائية الشائعة مقبولة.",
+  "اختر الملف وافحصه: تظهر كل الأخطاء برقم الصف، ومنها المحافظات أو المدن غير المعروفة",
+  "استورد عندما يخلو الملف من الأخطاء: إما كل الصفوف أو لا شيء، وسعر الشحن يُحسب من المناطق",
+];
 
 // Upload .xlsx -> check (errors per row) -> import (all or nothing).
 export default function ImportPage() {
@@ -116,7 +121,8 @@ export default function ImportPage() {
                     { key: "row", header: "الصف", cell: (r) => <span className="num">{r.row}</span> },
                     { key: "name", header: "الاسم", primary: true, cell: (r) => r.fullName },
                     { key: "phone", header: "الهاتف", cell: (r) => <span dir="ltr" className="num">{r.phone}</span> },
-                    { key: "address", header: "العنوان", cell: (r) => r.address },
+                    { key: "place", header: "الوجهة", cell: (r) => placeLabel(r.governorateCode, r.cityCode) },
+                    { key: "address", header: "العنوان", hideOnMobile: true, cell: (r) => r.address },
                     { key: "cost", header: "المبلغ", align: "end", cell: (r) => <Money value={r.cost} /> },
                     { key: "merchant", header: "التاجر", cell: (r) => r.merchant },
                   ]}

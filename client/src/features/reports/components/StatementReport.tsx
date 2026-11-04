@@ -12,13 +12,16 @@ import MerchantSelect from "@/features/merchants/components/MerchantSelect";
 import { Panel } from "@/components/ui/Panel";
 import { DataTable } from "@/components/ui/DataTable";
 import { DateRange, type Range } from "@/components/ui/DateRange";
-import { Select } from "@/components/ui/Field";
+import StatusSelect from "@/features/orders/components/StatusSelect";
+import { GovernorateSelect } from "@/features/locations/components/PlaceSelects";
+import ZoneSelect from "@/features/zones/components/ZoneSelect";
 import { Button } from "@/components/ui/Button";
 import Pagination from "@/components/ui/Pagination";
 import Money from "@/components/ui/Money";
 import { useFeedback } from "@/components/ui/feedback-context";
 import { useDebounced } from "@/lib/use-debounced";
-import { ORDER_STATUSES, statusLabel } from "@/lib/order-status";
+import { statusLabel } from "@/lib/order-status";
+import { placeLabel } from "@masar/shared";
 import { errorMessage } from "@/lib/errors";
 import type { Order } from "@/lib/types";
 
@@ -30,11 +33,13 @@ export default function StatementReport() {
   const [courier, setCourier] = useState("");
   const [status, setStatus] = useState("");
   const [merchant, setMerchant] = useState("");
+  const [governorate, setGovernorate] = useState("");
+  const [zone, setZone] = useState("");
   const [range, setRange] = useState<Range>({ from: "", to: "" });
   const [fees, setFees] = useState<FeeValues>({ courierFee: "", companyFee: "" });
   const [page, setPage] = useState(1);
   const debouncedFees = useDebounced(fees);
-  const query = { archived: "all", courier, status, merchant, ...range };
+  const query = { archived: "all", courier, status, merchant, governorate, zone, ...range };
   const { report, fees: used } = useSummaryReport({ ...query, ...debouncedFees });
   const { items, pages, loading } = usePagedOrders({ ...query, page, limit: PAGE_SIZE });
   const commission = (o: Order) => (o.status === "delivered" ? (fees.courierFee !== "" ? Number(fees.courierFee) : o.fees?.courier ?? 0) : 0);
@@ -63,7 +68,9 @@ export default function StatementReport() {
           { header: "الباركود", value: (o) => o.barcode },
           { header: "العميل", value: (o) => o.fullName },
           { header: "الهاتف", value: (o) => o.phone },
+          { header: "الوجهة", value: (o) => placeLabel(o.governorate, o.city) },
           { header: "العنوان", value: (o) => o.address },
+          { header: "سعر الشحن", value: (o) => o.shippingFee ?? "" },
           { header: "المبلغ", value: (o) => o.cost },
           { header: "الحالة", value: (o) => statusLabel(o.status) },
           { header: "المندوب", value: (o) => o.courier?.name ?? "" },
@@ -80,17 +87,12 @@ export default function StatementReport() {
   return (
     <div className="space-y-5">
       <Panel bodyClassName="space-y-3">
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <CourierSelect value={courier} onChange={set(setCourier)} aria-label="المندوب" />
-          <Select value={status} onChange={(e) => set(setStatus)(e.target.value)} aria-label="الحالة">
-            <option value="">كل الحالات</option>
-            {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {statusLabel(s)}
-              </option>
-            ))}
-          </Select>
+          <StatusSelect value={status} onChange={set(setStatus)} aria-label="الحالة" />
           <MerchantSelect value={merchant} onChange={set(setMerchant)} aria-label="التاجر" />
+          <GovernorateSelect value={governorate} onChange={set(setGovernorate)} aria-label="المحافظة" />
+          <ZoneSelect value={zone} onChange={set(setZone)} aria-label="منطقة الشحن" />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <DateRange value={range} onChange={set(setRange)} />

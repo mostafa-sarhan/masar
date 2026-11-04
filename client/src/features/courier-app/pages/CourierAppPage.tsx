@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Phone, MapPin, PackageCheck, RotateCcw, Ban, Repeat, Inbox } from "lucide-react";
 import type { CourierOrder, CourierToday } from "@/lib/types";
+import { placeLabel } from "@masar/shared";
 import PortalLayout from "@/app/layouts/PortalLayout";
 import Money from "@/components/ui/Money";
 import { Button } from "@/components/ui/Button";
@@ -114,6 +115,7 @@ export default function CourierAppPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-ink">{o.fullName}</p>
+                  {o.governorate && <p className="mt-0.5 text-sm font-medium text-ink">{placeLabel(o.governorate, o.city)}</p>}
                   <p className="mt-0.5 text-sm text-ink-2">{o.address}</p>
                 </div>
                 <b className="shrink-0 text-lg text-ink"><Money value={o.cost} /></b>
@@ -125,7 +127,7 @@ export default function CourierAppPage() {
                   <span dir="ltr" className="num">{o.phone}</span>
                 </a>
                 <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.address)}`}
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([o.address, placeLabel(o.governorate, o.city)].filter(Boolean).join("، "))}`}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex h-10 items-center gap-2 rounded-md border border-rule px-3 text-sm text-ink"

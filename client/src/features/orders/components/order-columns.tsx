@@ -2,6 +2,7 @@ import type { Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/Status";
 import Money from "@/components/ui/Money";
 import { formatDate } from "@/lib/format-date";
+import { placeLabel } from "@masar/shared";
 import type { Order } from "@/lib/types";
 
 type Key = "barcode" | "customer" | "address" | "merchant" | "courier" | "status" | "cost" | "date";
@@ -32,7 +33,16 @@ export function orderColumns<T extends Order = Order>(keys: Key[] = ["barcode", 
         </div>
       ),
     },
-    address: { key: "address", header: "العنوان", cell: (o) => <span className="line-clamp-2 max-w-56 text-ink-2">{o.address}</span> },
+    address: {
+      key: "address",
+      header: "الوجهة",
+      cell: (o) => (
+        <div className="max-w-56 leading-tight">
+          {o.governorate && <div className="text-ink">{placeLabel(o.governorate, o.city)}</div>}
+          <div className="line-clamp-2 text-xs text-ink-3">{o.address}</div>
+        </div>
+      ),
+    },
     merchant: { key: "merchant", header: "التاجر", cell: (o) => <span className="text-ink-2">{o.merchant?.name ?? "—"}</span> },
     courier: { key: "courier", header: "المندوب", cell: (o) => <span className="text-ink-2">{o.courier?.name ?? "—"}</span> },
     status: { key: "status", header: "الحالة", cell: (o) => <StatusBadge status={o.status} /> },

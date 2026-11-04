@@ -1,7 +1,7 @@
 // Client-side shapes of API responses (beyond the shared core types).
 import type { OrderStatus, Role, Plan, TenantStatus, Summary } from "@masar/shared";
 
-export type { Order, Ref, StatusEvent, SessionUser, SessionTenant, TenantSettings, Summary, Money, ReportMeta, OrderPageMeta, PageMeta } from "@masar/shared";
+export type { Order, Ref, StatusEvent, SessionUser, SessionTenant, TenantSettings, Summary, Money, ReportMeta, OrderPageMeta, PageMeta, Zone, ShippingQuote } from "@masar/shared";
 
 export interface Courier {
   _id: string;
@@ -19,6 +19,7 @@ export interface Merchant {
   apiKeyRevokedAt: string | null;
   createdAt: string;
   users?: string[];
+  zonePrices?: { zone: string; price: number }[];
 }
 
 export interface UserRow {
@@ -40,13 +41,15 @@ export interface AuditEventRow {
   createdAt: string;
 }
 
-export type GroupedReportRow<K extends "merchant" | "courier"> = Summary & { [P in K]: { _id: string; name: string | null } | null };
+export type GroupedReportRow<K extends "merchant" | "courier" | "zone" | "governorate"> = Summary & { [P in K]: { _id: string; name: string | null } | null };
 
 export interface CourierOrder {
   _id: string;
   barcode: string;
   fullName: string;
   phone: string;
+  governorate?: string | null;
+  city?: string | null;
   address: string;
   cost: number;
   description?: string;
@@ -69,8 +72,11 @@ export interface PortalOrder {
   merchantRef?: string;
   fullName: string;
   phone: string;
+  governorate?: string | null;
+  city?: string | null;
   address: string;
   cost: number;
+  shippingFee?: number | null;
   description?: string;
   status: OrderStatus;
   reason?: string | null;
@@ -127,5 +133,5 @@ export interface ImportCheck {
   totalRows: number;
   validRows: number;
   errors: { row: number; field: string; message: string }[];
-  preview?: { row: number; fullName: string; phone: string; address: string; cost: number; merchant: string }[];
+  preview?: { row: number; fullName: string; phone: string; governorateCode: string; cityCode: string; address: string; cost: number; merchant: string }[];
 }

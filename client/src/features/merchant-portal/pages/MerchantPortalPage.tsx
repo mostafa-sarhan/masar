@@ -10,14 +10,19 @@ import { Panel } from "@/components/ui/Panel";
 import { DataTable } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Overlay";
 import { Button } from "@/components/ui/Button";
-import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { Field, Input, Textarea } from "@/components/ui/Field";
+import StatusSelect from "@/features/orders/components/StatusSelect";
+import { GovernorateSelect, CitySelect } from "@/features/locations/components/PlaceSelects";
+import { useShippingQuote } from "@/features/zones/hooks/use-shipping-quote";
+import { ShippingQuoteNote } from "@/features/zones/components/ShippingQuoteNote";
+import { placeLabel } from "@masar/shared";
 import { DateRange, type Range } from "@/components/ui/DateRange";
 import { StatusBadge } from "@/components/ui/Status";
 import { Skeleton } from "@/components/ui/Feedback";
 import { useFeedback } from "@/components/ui/feedback-context";
 import { SecretReveal } from "@/components/forms/SecretReveal";
 import { MoneyTiles } from "@/features/reports/components/MoneyTiles";
-import { getPortalOrders, createPortalOrder, getPortalStatement, getPortalApiKey, rotatePortalApiKey, getPortalOrder } from "@/lib/portals-api";
+import { getPortalOrders, getPortalQuote, createPortalOrder, getPortalStatement, getPortalApiKey, rotatePortalApiKey, getPortalOrder } from "@/lib/portals-api";
 import { trackingUrl } from "@/features/orders/api/orders-api";
 import StatusTimeline from "@/features/orders/components/StatusTimeline";
 import { useDebounced } from "@/lib/use-debounced";
@@ -49,16 +54,17 @@ function OrdersTab() {
   const { toast } = useFeedback();
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
+  const [governorate, setGovernorate] = useState("");
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<{ items: PortalOrder[]; pages: number; total: number } | null>(null);
   const [details, setDetails] = useState<PortalOrder | null>(null);
   const debouncedSearch = useDebounced(search, 350);
 
   useEffect(() => {
-    getPortalOrders({ status, search: debouncedSearch, page, limit: 20 })
+    getPortalOrders({ status, governorate, search: debouncedSearch, page, limit: 20 })
       .then(({ data, meta }) => setResult({ items: data, ...meta }))
       .catch((err) => toast(errorMessage(err), "danger"));
-  }, [status, debouncedSearch, page, toast]);
+  }, [status, governorate, debouncedSearch, page, toast]);
 
   const open = (o: PortalOrder) => getPortalOrder(o._id).then(setDetails).catch((err) => toast(errorMessage(err), "danger"));
 
@@ -79,20 +85,24 @@ function OrdersTab() {
             }}
           />
         </div>
-        <Select
-          className="w-44"
+        <StatusSelect
+          className="w-full sm:w-44"
           aria-label="الحالة"
           value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
+          onChange={(v) => {
+            setStatus(v);
             setPage(1);
           }}
-        >
-          <option value="">كل الحالات</option>
-          {ORDER_STATUSES.map((s) => (
-            <option key={s} value={s}>{statusLabel(s)}</option>
-          ))}
-        </Select>
+        />
+        <GovernorateSelect
+          className="w-full sm:w-44"
+          aria-label="المحافظة"
+          value={governorate}
+          onChange={(v) => {
+            setGovernorate(v);
+            setPage(1);
+          }}
+        />
         {result && <span className="ms-auto text-sm text-ink-2"><span className="num">{result.total}</span> شحنة</span>}
       </Panel>
 
@@ -116,7 +126,17 @@ function OrdersTab() {
               ),
             },
             { key: "customer", header: "العميل", cell: (o) => <div className="leading-tight"><div className="text-ink">{o.fullName}</div><div className="num text-xs text-ink-3" dir="ltr">{o.phone}</div></div> },
-            { key: "address", header: "العنوان", hideOnMobile: true, cell: (o) => <span className="line-clamp-2 max-w-56 text-ink-2">{o.address}</span> },
+            {
+              key: "address",
+              header: "الوجهة",
+              hideOnMobile: true,
+              cell: (o) => (
+                <div className="max-w-56 leading-tight">
+                  {o.governorate && <div className="text-ink">{placeLabel(o.governorate, o.city)}</div>}
+                  <div className="line-clamp-2 text-xs text-ink-3">{o.address}</div>
+                </div>
+              ),
+            },
             { key: "status", header: "الحالة", cell: (o) => <div><StatusBadge status={o.status} />{o.reason && <div className="mt-1 text-xs text-ink-3">{o.reason}</div>}</div> },
             { key: "cost", header: "المبلغ", align: "end", cell: (o) => <span className="font-medium text-ink"><Money value={o.cost} /></span> },
             { key: "date", header: "التاريخ", hideOnMobile: true, cell: (o) => <span className="num text-ink-3">{formatDate(o.createdAt)}</span> },
@@ -133,6 +153,14 @@ function OrdersTab() {
               <StatusBadge status={details.status} pressed />
               <b className="text-lg text-ink"><Money value={details.cost} /></b>
             </div>
+            <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-2 text-sm">
+              <dt className="text-ink-3">الوجهة</dt>
+              <dd className="text-ink">{placeLabel(details.governorate, details.city) || "—"}</dd>
+              <dt className="text-ink-3">العنوان</dt>
+              <dd className="text-ink">{details.address}</dd>
+              <dt className="text-ink-3">سعر الشحن</dt>
+              <dd className="text-ink">{details.shippingFee != null ? <Money value={details.shippingFee} /> : "حسب الاتفاق"}</dd>
+            </dl>
             <div>
               <p className="mb-1.5 text-sm font-medium text-ink">رابط التتبع للعميل</p>
               <div className="flex gap-2">
@@ -155,9 +183,10 @@ function TrackingCopy({ url }: { url: string }) {
 
 function CreateTab({ onCreated }: { onCreated(): void }) {
   const { toast } = useFeedback();
-  const empty = { fullName: "", phone: "", address: "", cost: "", description: "" };
+  const empty = { fullName: "", phone: "", governorate: "", city: "", address: "", cost: "", description: "" };
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const { quote, loading } = useShippingQuote(getPortalQuote, form.governorate, form.city);
   const set = (name: keyof typeof empty, transform: (v: string) => string = (v) => v) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [name]: transform(e.target.value) }));
 
   const submit = async (e: FormEvent) => {
@@ -180,7 +209,14 @@ function CreateTab({ onCreated }: { onCreated(): void }) {
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
         <Field label="اسم العميل">{(p) => <Input {...p} required value={form.fullName} onChange={set("fullName")} />}</Field>
         <Field label="رقم الهاتف">{(p) => <Input {...p} required dir="ltr" inputMode="tel" value={form.phone} onChange={set("phone", toLatinDigits)} />}</Field>
-        <Field label="العنوان" className="sm:col-span-2">{(p) => <Input {...p} required value={form.address} onChange={set("address")} />}</Field>
+        <Field label="المحافظة">
+          {(p) => <GovernorateSelect {...p} required value={form.governorate} onChange={(g) => setForm((f) => ({ ...f, governorate: g, city: g === f.governorate ? f.city : "" }))} />}
+        </Field>
+        <Field label="المدينة / المنطقة">{(p) => <CitySelect {...p} required governorate={form.governorate} value={form.city} onChange={(c) => setForm((f) => ({ ...f, city: c }))} />}</Field>
+        <Field label="العنوان بالتفصيل" hint="الشارع، رقم العمارة، الدور، علامة مميزة" className="sm:col-span-2">{(p) => <Input {...p} required value={form.address} onChange={set("address")} />}</Field>
+        <p className="text-sm text-ink-2 sm:col-span-2">
+          <ShippingQuoteNote quote={quote} loading={loading} governorate={form.governorate} />
+        </p>
         <Field label="المبلغ المطلوب تحصيله" hint="شامل قيمة المنتج">{(p) => <Input {...p} required dir="ltr" inputMode="decimal" value={form.cost} onChange={set("cost", toLatinDigits)} />}</Field>
         <Field label="ملاحظات للمندوب" className="sm:col-span-2">{(p) => <Textarea {...p} rows={3} value={form.description} onChange={set("description")} />}</Field>
         <div className="sm:col-span-2 flex justify-end">

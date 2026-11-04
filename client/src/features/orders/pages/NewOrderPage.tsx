@@ -8,11 +8,13 @@ import { printLabel } from "../lib/print";
 import { PageHeader, Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { useFeedback } from "@/components/ui/feedback-context";
+import { useAuth } from "@/app/auth-context";
 import { errorMessage } from "@/lib/errors";
 import type { Order } from "@/lib/types";
 
 export default function NewOrderPage() {
   const { toast } = useFeedback();
+  const { user } = useAuth();
   const [formKey, setFormKey] = useState(0);
   const [last, setLast] = useState<Order | null>(null);
 
@@ -48,7 +50,7 @@ export default function NewOrderPage() {
         </div>
       )}
       <Panel>
-        <OrderForm key={formKey} onSubmit={submit} />
+        <OrderForm key={formKey} onSubmit={submit} role={user?.role} />
       </Panel>
     </div>
   );

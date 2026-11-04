@@ -1,35 +1,42 @@
-import { useEffect, useState, type SelectHTMLAttributes } from "react";
-import { getCouriers } from "@/lib/resources-api";
-import { Select } from "@/components/ui/Field";
-import type { Courier } from "@/lib/types";
+import { useCallback } from "react";
+import { Combobox, type ComboOption } from "@/components/ui/Combobox";
+import { getCourierOptions } from "@/lib/resources-api";
 
-type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, "onChange" | "value"> & {
+type Props = {
   value: string;
   onChange(id: string): void;
-  onLoaded?(couriers: Courier[]): void;
+  // The chosen courier with its name (null when cleared), for pages that show it.
+  onPick?(courier: { _id: string; name: string } | null): void;
   placeholder?: string;
+  required?: boolean;
+  placement?: "bottom" | "top";
+  className?: string;
+  id?: string;
+  "aria-label"?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
 };
 
-// Courier dropdown; value is the courier id. `onLoaded` receives the list (for names).
-export default function CourierSelect({ value, onChange, onLoaded, placeholder = "كل المناديب", ...rest }: Props) {
-  const [couriers, setCouriers] = useState<Courier[]>([]);
-  useEffect(() => {
-    getCouriers()
-      .then((list) => {
-        setCouriers(list);
-        onLoaded?.(list);
-      })
-      .catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+const toOptions = (list: { _id: string; name: string }[]): ComboOption[] => list.map((c) => ({ value: c._id, label: c.name }));
+
+// Courier picker, searched on the server.
+export default function CourierSelect({ value, onChange, onPick, placeholder = "كل المناديب", required, ...rest }: Props) {
+  const load = useCallback((q: string) => getCourierOptions({ q }).then(toOptions), []);
+  const resolve = useCallback((ids: string[]) => getCourierOptions({ ids }).then(toOptions), []);
   return (
-    <Select value={value} onChange={(e) => onChange(e.target.value)} {...rest}>
-      <option value="">{placeholder}</option>
-      {couriers.map((c) => (
-        <option key={c._id} value={c._id}>
-          {c.name}
-        </option>
-      ))}
-    </Select>
+    <Combobox
+      value={value}
+      onChange={(id, option) => {
+        onChange(id);
+        onPick?.(option ? { _id: option.value, name: option.label } : null);
+      }}
+      loadOptions={load}
+      resolveOptions={resolve}
+      placeholder={placeholder}
+      emptyText="لا يوجد مندوب بهذا الاسم"
+      required={required}
+      clearable={!required}
+      {...rest}
+    />
   );
 }

@@ -4,11 +4,15 @@ import { escapeHtml as esc } from "@/lib/html";
 import { formatDate } from "@/lib/format-date";
 import { statusLabel } from "@/lib/order-status";
 import { formatMoney } from "@/lib/locale";
+import { placeLabel } from "@masar/shared";
 import { trackingUrl } from "@/features/orders/api/orders-api";
 
 // Barcode as an SVG string, rendered in the main document so the print window needs no scripts.
 // Printed orders: full staff orders or the courier sheet subset.
-type Printable = Pick<Order, "barcode" | "fullName" | "address" | "phone" | "cost" | "createdAt"> & Partial<Pick<Order, "trackingId" | "merchant" | "status">>;
+type Printable = Pick<Order, "barcode" | "fullName" | "address" | "phone" | "cost" | "createdAt"> & Partial<Pick<Order, "trackingId" | "merchant" | "status" | "governorate" | "city">>;
+
+// "مدينة نصر، القاهرة — شارع ..." (the address alone for orders created before locations).
+const destination = (o: Printable) => [placeLabel(o.governorate, o.city), o.address].filter(Boolean).join(" — ");
 
 function barcodeSvg(value: string) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -43,7 +47,7 @@ const labelHtml = (o: Printable) => `
   <div class="label">
     ${barcodeSvg(o.barcode)}
     <p><strong>الاسم:</strong> ${esc(o.fullName)}</p>
-    <p><strong>العنوان:</strong> ${esc(o.address)}</p>
+    <p><strong>العنوان:</strong> ${esc(destination(o))}</p>
     <p><strong>رقم الهاتف:</strong> ${esc(o.phone)}</p>
     <p><strong>التكلفة:</strong> ${esc(formatMoney(o.cost))}</p>
     ${o.trackingId ? `<p style="font-size:10px"><strong>تتبع:</strong> <span dir="ltr">${esc(o.trackingId)}</span><br><span dir="ltr">${esc(trackingUrl(o.trackingId))}</span></p>` : ""}
@@ -59,7 +63,7 @@ export function printCourierSheet(orders: Printable[], courierName: string) {
   const rows = orders
     .map(
       (o) => `<tr>
-        <td>${esc(formatDate(o.createdAt))}</td><td>${barcodeSvg(o.barcode)}</td><td>${esc(o.address)}</td>
+        <td>${esc(formatDate(o.createdAt))}</td><td>${barcodeSvg(o.barcode)}</td><td>${esc(destination(o))}</td>
         <td>${esc(o.fullName)}<br>${esc(o.phone)}</td><td>${esc(o.merchant?.name ?? "-")}</td><td>${esc(o.cost)}</td>
       </tr>`
     )
@@ -77,7 +81,7 @@ export function printOrdersTable(orders: Printable[]) {
   const rows = orders
     .map(
       (o) => `<tr>
-        <td>${esc(formatDate(o.createdAt))}</td><td>${esc(o.barcode)}</td><td>${esc(o.address)}</td>
+        <td>${esc(formatDate(o.createdAt))}</td><td>${esc(o.barcode)}</td><td>${esc(destination(o))}</td>
         <td>${esc(o.fullName)} - ${esc(o.phone)}</td><td>${esc(o.merchant?.name ?? "-")}</td>
         <td>${esc(o.status ? statusLabel(o.status) : "")}</td><td>${esc(o.cost)}</td>
       </tr>`

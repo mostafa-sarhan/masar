@@ -2,7 +2,8 @@ import { useCallback, useState } from "react";
 import { Archive } from "lucide-react";
 import { usePagedOrders } from "../hooks/use-paged-orders";
 import { orderColumns } from "../components/order-columns";
-import { OrderFilters, type Filters } from "../components/OrderFilters";
+import { OrderFilters } from "../components/OrderFilters";
+import { EMPTY_FILTERS, type Filters } from "../lib/filters";
 import OrderDetailsDrawer from "../components/OrderDetailsDrawer";
 import { PageHeader, Panel } from "@/components/ui/Panel";
 import { DataTable } from "@/components/ui/DataTable";
@@ -11,10 +12,9 @@ import Money from "@/components/ui/Money";
 import { FINAL_STATUSES } from "@/lib/order-status";
 
 const PAGE_SIZE = 20;
-const EMPTY: Filters = { search: "", status: "", merchant: "", courier: "", date: "" };
 
 export default function ArchivePage() {
-  const [filters, setFiltersState] = useState<Filters>(EMPTY);
+  const [filters, setFiltersState] = useState<Filters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const setFilters = useCallback((f: Filters) => {

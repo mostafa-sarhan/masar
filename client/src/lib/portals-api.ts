@@ -11,7 +11,8 @@ export const reportOutcome = (id: string, status: "delivered" | "returned" | "re
 // Merchant portal
 export const getPortalOrders = (params: Params) => request<PortalOrder[], PageMeta>("/portal/orders", { params });
 export const getPortalOrder = (id: string) => api<PortalOrder>(`/portal/orders/${id}`);
-export const createPortalOrder = (order: { fullName: string; phone: string; address: string; cost: number; description?: string }) =>
+export const getPortalQuote = (governorate: string, city: string) => api<{ zoneName: string | null; shippingFee: number | null }>("/portal/quote", { params: { governorate, city } });
+export const createPortalOrder = (order: { fullName: string; phone: string; governorate: string; city: string; address: string; cost: number; description?: string }) =>
   api<PortalOrder>("/portal/orders", { method: "POST", body: order });
 export const getPortalStatement = (params: Params) => api<PortalStatement>("/portal/statement", { params });
 export const getPortalApiKey = () => api<{ name: string; apiKeyPrefix: string | null; hasActiveKey: boolean; apiKeyCreatedAt: string | null }>("/portal/api-key");

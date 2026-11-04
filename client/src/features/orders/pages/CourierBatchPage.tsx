@@ -17,7 +17,7 @@ import { useFeedback } from "@/components/ui/feedback-context";
 import { errorMessage } from "@/lib/errors";
 import { nextStatuses, statusLabel } from "@/lib/order-status";
 import { isAdmin as isAdminRole } from "@/lib/roles";
-import type { Order, Courier, Summary, ReportMeta } from "@/lib/types";
+import type { Order, Summary, ReportMeta } from "@/lib/types";
 
 const MAX_ORDERS = 100;
 type BatchOrder = Order & { outcome?: OrderStatus };
@@ -28,14 +28,13 @@ export default function CourierBatchPage() {
   const admin = isAdminRole(user?.role);
   const { toast, confirm } = useFeedback();
   const [courier, setCourier] = useState("");
-  const [couriers, setCouriers] = useState<Courier[]>([]);
+  const [courierName, setCourierName] = useState("");
   const [orders, setOrders] = useState<BatchOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [courierFee, setCourierFee] = useState("");
   const [settlement, setSettlement] = useState<(Summary & { fees: ReportMeta["fees"] }) | null>(null);
-  const courierName = couriers.find((c) => c._id === courier)?.name;
 
   const loadSettlement = async (list: BatchOrder[], fee = courierFee) => {
     if (!list.length) return setSettlement(null);
@@ -91,7 +90,7 @@ export default function CourierBatchPage() {
       <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
         <Panel
           title={courierName ? `شحنات ${courierName}` : "شحنات المندوب"}
-          action={<CourierSelect value={courier} onChange={selectCourier} onLoaded={setCouriers} placeholder="اختر المندوب" className="h-9 w-48" aria-label="المندوب" />}
+          action={<CourierSelect value={courier} onChange={selectCourier} onPick={(c) => setCourierName(c?.name ?? "")} placeholder="اختر المندوب" className="h-9 w-48" aria-label="المندوب" />}
           bodyClassName="space-y-3"
         >
           {total > MAX_ORDERS && <Notice tone="warn">تُعرض أول {MAX_ORDERS} شحنة من {total}.</Notice>}

@@ -3,6 +3,7 @@ import SummaryReport from "../components/SummaryReport";
 import MerchantReport from "../components/MerchantReport";
 import CourierReport from "../components/CourierReport";
 import StatementReport from "../components/StatementReport";
+import AreaReport from "../components/AreaReport";
 import { PageHeader } from "@/components/ui/Panel";
 import { Tabs } from "@/components/ui/Tabs";
 
@@ -10,6 +11,8 @@ const TABS = {
   summary: { label: "الملخص", Component: SummaryReport },
   merchants: { label: "التجار", Component: MerchantReport },
   couriers: { label: "المناديب", Component: CourierReport },
+  zones: { label: "المناطق", Component: () => <AreaReport field="zone" /> },
+  governorates: { label: "المحافظات", Component: () => <AreaReport field="governorate" /> },
   statement: { label: "كشف الحساب", Component: StatementReport },
 };
 type Tab = keyof typeof TABS;

@@ -6,6 +6,8 @@ import FeeInputs, { type FeeValues } from "./FeeInputs";
 import { MoneyTiles } from "./MoneyTiles";
 import { downloadReport } from "../lib/excel";
 import MerchantSelect from "@/features/merchants/components/MerchantSelect";
+import { GovernorateSelect } from "@/features/locations/components/PlaceSelects";
+import ZoneSelect from "@/features/zones/components/ZoneSelect";
 import { Panel } from "@/components/ui/Panel";
 import { DateRange, type Range } from "@/components/ui/DateRange";
 import { Button } from "@/components/ui/Button";
@@ -20,10 +22,12 @@ import { errorMessage } from "@/lib/errors";
 export default function SummaryReport() {
   const { toast } = useFeedback();
   const [merchant, setMerchant] = useState("");
+  const [governorate, setGovernorate] = useState("");
+  const [zone, setZone] = useState("");
   const [range, setRange] = useState<Range>({ from: "", to: "" });
   const [fees, setFees] = useState<FeeValues>({ courierFee: "", companyFee: "" });
   const debouncedFees = useDebounced(fees);
-  const filters = { archived: "all", merchant, ...range };
+  const filters = { archived: "all", merchant, governorate, zone, ...range };
   const { report, fees: used, loading } = useSummaryReport({ ...filters, ...debouncedFees });
 
   const exportExcel = async () => {
@@ -60,7 +64,9 @@ export default function SummaryReport() {
   return (
     <div className="space-y-5">
       <Panel bodyClassName="flex flex-wrap items-center gap-3">
-        <MerchantSelect value={merchant} onChange={setMerchant} className="w-48" aria-label="التاجر" />
+        <MerchantSelect value={merchant} onChange={setMerchant} className="w-full sm:w-48" aria-label="التاجر" />
+        <GovernorateSelect value={governorate} onChange={setGovernorate} className="w-full sm:w-44" aria-label="المحافظة" />
+        <ZoneSelect value={zone} onChange={setZone} className="w-full sm:w-44" aria-label="منطقة الشحن" />
         <DateRange value={range} onChange={setRange} />
         <FeeInputs value={fees} onChange={setFees} defaults={used} />
         <Button variant="secondary" className="ms-auto" icon={<FileDown className="size-4" />} onClick={exportExcel} disabled={!report}>

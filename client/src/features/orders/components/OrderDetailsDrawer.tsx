@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Status";
 import { Skeleton } from "@/components/ui/Feedback";
 import { useFeedback } from "@/components/ui/feedback-context";
+import { placeLabel } from "@masar/shared";
 import Money from "@/components/ui/Money";
 import { errorMessage } from "@/lib/errors";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import type { Order, AuditEventRow } from "@/lib/types";
 
 const ACTIONS: Record<string, string> = { CREATE: "إنشاء", UPDATE: "تعديل", STATUS_CHANGE: "تغيير الحالة", DELETE: "حذف" };
-const FIELDS: Record<string, string> = { status: "الحالة", courier: "المندوب", cost: "المبلغ", fullName: "الاسم", phone: "الهاتف", address: "العنوان", merchant: "التاجر", description: "الملاحظات", reason: "السبب", deliveredAt: "وقت الإغلاق", fees: "العمولات", isArchived: "الأرشفة", source: "المصدر" };
+const FIELDS: Record<string, string> = { status: "الحالة", courier: "المندوب", cost: "المبلغ", fullName: "الاسم", phone: "الهاتف", address: "العنوان", governorate: "المحافظة", city: "المدينة", zone: "منطقة الشحن", shippingFee: "سعر الشحن", merchant: "التاجر", description: "الملاحظات", reason: "السبب", deliveredAt: "وقت الإغلاق", fees: "العمولات", isArchived: "الأرشفة", source: "المصدر" };
 
 // The waybill of one order: details, status timeline, change history and the customer tracking link.
 export default function OrderDetailsDrawer({ orderId, onClose, onEdit }: { orderId: string | null; onClose(): void; onEdit?(order: Order): void }) {
@@ -80,8 +81,10 @@ export default function OrderDetailsDrawer({ orderId, onClose, onEdit }: { order
             {[
               ["العميل", order.fullName],
               ["الهاتف", <span dir="ltr" className="num">{order.phone}</span>],
+              ["الوجهة", placeLabel(order.governorate, order.city) || "—"],
               ["العنوان", order.address],
               ["المبلغ", <b className="text-ink"><Money value={order.cost} /></b>],
+              ["سعر الشحن", order.shippingFee != null ? <span><Money value={order.shippingFee} />{order.zone?.name && <span className="text-ink-3"> ({order.zone.name})</span>}</span> : "حسب العمولة الثابتة"],
               ["التاجر", order.merchant?.name ?? "—"],
               ["المندوب", order.courier?.name ?? "—"],
               ["ملاحظات", order.description || "—"],

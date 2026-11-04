@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { UserPlus, KeyRound, ShieldCheck, Users, ScrollText } from "lucide-react";
 import type { Role } from "@masar/shared";
 import { getUsers, getAuditLogs, createUser, changePassword, changeRole } from "@/lib/resources-api";
+import { Combobox, type ComboOption } from "@/components/ui/Combobox";
 import { useAuth } from "@/app/auth-context";
 import { PageHeader, Panel } from "@/components/ui/Panel";
 import { Tabs } from "@/components/ui/Tabs";
@@ -32,8 +33,13 @@ const ACTIONS: Record<string, string> = {
   ROTATE_API_KEY: "تغيير مفتاح API",
   REVOKE_API_KEY: "إلغاء مفتاح API",
   UPDATE_SETTINGS: "تعديل الإعدادات",
+  UPDATE_ZONE_PRICES: "تعديل أسعار التاجر",
+  CREATE_ZONE: "إضافة منطقة شحن",
+  UPDATE_ZONE: "تعديل منطقة شحن",
+  DELETE_ZONE: "حذف منطقة شحن",
 };
-const ENTITIES: Record<string, string> = { user: "مستخدم", order: "شحنة", merchant: "تاجر", courier: "مندوب", settings: "الإعدادات" };
+const ENTITIES: Record<string, string> = { user: "مستخدم", order: "شحنة", merchant: "تاجر", courier: "مندوب", settings: "الإعدادات", zone: "منطقة شحن" };
+const ENTITY_OPTIONS = Object.entries(ENTITIES).map(([value, label]) => ({ value, label }));
 const ROLE_TONE: Record<Role, "info" | "ok" | "neutral" | "warn"> = { owner: "warn", admin: "info", employee: "neutral", courier: "ok", merchant: "neutral" };
 
 type Dialog = { kind: "add" } | { kind: "password"; user: UserRow } | { kind: "role"; user: UserRow } | null;
@@ -189,15 +195,27 @@ function RoleDialog({ user, canGrantOwner, onClose, onDone }: { user: UserRow; c
 function Audit() {
   const { toast } = useFeedback();
   const [page, setPage] = useState(1);
+  const [actor, setActor] = useState("");
+  const [entity, setEntity] = useState("");
+  const [users, setUsers] = useState<ComboOption[]>([]);
   const [result, setResult] = useState<{ items: AuditEventRow[]; pages: number } | null>(null);
   useEffect(() => {
-    getAuditLogs({ page, limit: 25 })
+    getUsers()
+      .then((list) => setUsers(list.map((u) => ({ value: u.id, label: u.email, hint: ROLE_LABELS[u.role] }))))
+      .catch(() => setUsers([]));
+  }, []);
+  useEffect(() => {
+    getAuditLogs({ page, limit: 25, actor, entity })
       .then(({ data, meta }) => setResult({ items: data, pages: meta.pages }))
       .catch((err) => toast(errorMessage(err), "danger"));
-  }, [page, toast]);
+  }, [page, actor, entity, toast]);
 
   return (
     <Panel>
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:max-w-2xl">
+        <Combobox value={actor} onChange={(v) => { setActor(v); setPage(1); }} options={users} placeholder="كل المستخدمين" emptyText="لا يوجد مستخدم بهذا البريد" aria-label="المستخدم" />
+        <Combobox value={entity} onChange={(v) => { setEntity(v); setPage(1); }} options={ENTITY_OPTIONS} placeholder="كل الأنواع" aria-label="نوع السجل" />
+      </div>
       <DataTable
         caption="سجل التعديلات"
         loading={!result}

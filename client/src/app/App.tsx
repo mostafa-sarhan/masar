@@ -20,6 +20,7 @@ const CouriersPage = lazy(() => import("@/features/couriers/pages/CouriersPage")
 const MerchantsPage = lazy(() => import("@/features/merchants/pages/MerchantsPage"));
 const UsersPage = lazy(() => import("@/features/users/pages/UsersPage"));
 const SettingsPage = lazy(() => import("@/features/settings/pages/SettingsPage"));
+const ZonesPage = lazy(() => import("@/features/zones/pages/ZonesPage"));
 const CourierAppPage = lazy(() => import("@/features/courier-app/pages/CourierAppPage"));
 const MerchantPortalPage = lazy(() => import("@/features/merchant-portal/pages/MerchantPortalPage"));
 const PlatformApp = lazy(() => import("@/features/platform/pages/PlatformApp"));
@@ -74,6 +75,7 @@ export default function App() {
             ["/merchants", adminOnly(<MerchantsPage />)],
             ["/users", adminOnly(<UsersPage />)],
             ["/settings", adminOnly(<SettingsPage />)],
+            ["/zones", adminOnly(<ZonesPage />)],
           ].map(([path, element]) => (
             <Route key={path as string} path={path as string} element={<Suspense fallback={<PageFallback />}>{element}</Suspense>} />
           ))}

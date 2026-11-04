@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, PackagePlus, ScanLine, HandCoins, Archive, BarChart3, Bike, Store, FileSpreadsheet, Users, Settings, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Package, PackagePlus, ScanLine, HandCoins, Archive, BarChart3, Bike, Store, MapPinned, FileSpreadsheet, Users, Settings, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -27,6 +27,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: "/reports", label: "التقارير", icon: BarChart3, adminOnly: true, keywords: "كشف حساب reports" },
       { to: "/couriers", label: "المناديب", icon: Bike, adminOnly: true, keywords: "couriers" },
       { to: "/merchants", label: "التجار", icon: Store, adminOnly: true, keywords: "merchants api" },
+      { to: "/zones", label: "مناطق الشحن", icon: MapPinned, adminOnly: true, keywords: "zones أسعار محافظات مدن تسعير" },
       { to: "/import", label: "استيراد Excel", icon: FileSpreadsheet, adminOnly: true, keywords: "import اكسل" },
       { to: "/users", label: "المستخدمون والسجل", icon: Users, adminOnly: true, keywords: "users موظفين audit" },
       { to: "/settings", label: "الإعدادات", icon: Settings, adminOnly: true, keywords: "settings عمولات" },
