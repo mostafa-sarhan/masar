@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "npm run build -w @masar/shared && concurrently -k -n shared,api,web -c gray,blue,magenta \"npm run dev -w @masar/shared\" \"npm run dev -w @masar/server\" \"npm run dev -w @masar/client\"",
     "build": "npm run build -w @masar/shared && npm run build -w @masar/server && npm run build -w @masar/client",
-    "test": "npm run build -w @masar/shared && npm test -w @masar/server",
+    "test": "npm run build -w @masar/shared && npm test --workspaces --if-present",
     "lint": "eslint .",
     "typecheck": "npm run build -w @masar/shared && npm run typecheck --workspaces --if-present"
   },

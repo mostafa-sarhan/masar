@@ -31,4 +31,4 @@ export const downloadImportTemplate = () => downloadFile("/orders/import/templat
 
 // Public tracking (no login)
 export const trackShipment = (trackingId: string) => api<TrackingResult>(`/track/${encodeURIComponent(trackingId)}`);
-export const trackingUrl = (trackingId: string) => `${window.location.origin}${window.location.pathname}#/track/${trackingId}`;
+export const trackingUrl = (trackingId: string) => `${window.location.origin}/track/${trackingId}`;
