@@ -49,7 +49,7 @@ Set `MONGOMS_SYSTEM_BINARY=/path/to/mongod` to run the tests with a local MongoD
 - [docs/phase-c-plan.md](docs/phase-c-plan.md): multi-tenant architecture
 - [docs/phase-a-audit.md](docs/phase-a-audit.md): security audit and what was fixed
 - [docs/checklist.md](docs/checklist.md): project progress
-- [docs/design-proposal/](docs/design-proposal/): design directions (Waybill chosen)
+- [docs/design/](docs/design/): the Waybill design direction
 
 The docs were written before the monorepo; `express/` there means `server/`, `sys_shipping/` means `client/`.
 # masar
