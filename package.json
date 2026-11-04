@@ -12,7 +12,10 @@
     "build": "npm run build -w @masar/shared && npm run build -w @masar/server && npm run build -w @masar/client",
     "test": "npm run build -w @masar/shared && npm test --workspaces --if-present",
     "lint": "eslint .",
-    "typecheck": "npm run build -w @masar/shared && npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run build -w @masar/shared && npm run typecheck --workspaces --if-present",
+    "seed": "npm run build -w @masar/shared && npm run build -w @masar/server && npm run seed -w @masar/server",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down"
   },
   "overrides": {
     "uuid": "^11.1.1"

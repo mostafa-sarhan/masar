@@ -10,7 +10,8 @@
     "test": "vitest run",
     "migrate": "node dist/scripts/migrate.js",
     "platform-admin": "node dist/scripts/platform-admin.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed": "node dist/scripts/seed.js"
   },
   "license": "ISC",
   "dependencies": {
