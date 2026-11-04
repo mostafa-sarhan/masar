@@ -6,6 +6,7 @@ const router = Router();
 router.use(requireAuth, staffOnly);
 
 router.get("/", c.list);
+router.get("/options", c.options);
 router.post("/", adminOnly, c.create);
 router.patch("/:id", adminOnly, c.rename);
 router.post("/:id/account", adminOnly, c.createAccount);

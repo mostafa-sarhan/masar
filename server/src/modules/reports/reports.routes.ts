@@ -8,6 +8,8 @@ router.use(requireAuth, staffOnly);
 router.get("/summary", adminOnly, c.summary);
 router.get("/merchants", adminOnly, c.byField("merchant"));
 router.get("/couriers", adminOnly, c.byField("courier"));
+router.get("/zones", adminOnly, c.byField("zone"));
+router.get("/governorates", adminOnly, c.byField("governorate"));
 // A courier's current batch (Couriers page). Open to employees, configured fees only.
 router.post("/settlement", c.settlement);
 

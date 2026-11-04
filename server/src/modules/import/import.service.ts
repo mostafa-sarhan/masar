@@ -12,9 +12,12 @@ import { scope } from "../../lib/scope";
 import { withTransaction } from "../../lib/transaction";
 import { config } from "../../config";
 import { importRow, ImportRow, HEADER_ALIASES, TEMPLATE_HEADERS } from "./import.schema";
+import { findCity, findGovernorate, sameName } from "@masar/shared";
+import { Zone } from "../zones/zone.model";
+import { priceFor } from "../zones/zones.service";
 
 type RowError = { row: number; field: string; message: string };
-type Parsed = { row: number; data: ImportRow; merchantId: mongoose.Types.ObjectId };
+type Parsed = { row: number; data: ImportRow; merchantId: mongoose.Types.ObjectId; governorate: string; city: string };
 
 const AR_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 const toEnglishDigits = (s: string) => s.replace(/[٠-٩]/g, (d) => String(AR_DIGITS.indexOf(d)));
@@ -50,7 +53,7 @@ async function readSheet(buffer: Buffer) {
     const field = (Object.keys(HEADER_ALIASES) as (keyof ImportRow)[]).find((f) => HEADER_ALIASES[f].some((a) => normalizeHeader(a) === header));
     if (field) columns.set(col, field);
   });
-  const missing = (["fullName", "phone", "address", "cost", "merchant"] as const).filter((f) => ![...columns.values()].includes(f));
+  const missing = (["fullName", "phone", "governorate", "city", "address", "cost", "merchant"] as const).filter((f) => ![...columns.values()].includes(f));
   if (missing.length) throw new AppError(400, "INVALID_FILE", "Missing required columns", missing.map((f) => ({ field: f, accepted: HEADER_ALIASES[f] })));
 
   const rows: { row: number; raw: Record<string, string> }[] = [];
@@ -69,7 +72,6 @@ async function readSheet(buffer: Buffer) {
 async function validate(req: Request, buffer: Buffer) {
   const rows = await readSheet(buffer);
   const merchants = await Merchant.find(scope(req)).select("name").lean();
-  const merchantByName = new Map(merchants.map((m) => [m.name.trim().toLowerCase(), m._id]));
 
   const errors: RowError[] = [];
   const parsed: Parsed[] = [];
@@ -88,17 +90,20 @@ async function validate(req: Request, buffer: Buffer) {
       for (const issue of result.error.issues) errors.push({ row, field: String(issue.path[0] ?? ""), message: issue.message });
       continue;
     }
-    const merchantId = merchantByName.get(result.data.merchant.trim().toLowerCase());
-    if (!merchantId) {
-      errors.push({ row, field: "merchant", message: `Unknown merchant "${result.data.merchant}"` });
-      continue;
-    }
+    // Names are matched the Arabic-aware way: "مدينه نصر" = "مدينة نصر", "الاسكندريه" = "الإسكندرية".
+    const merchantId = merchants.find((m) => sameName(m.name, result.data.merchant))?._id;
+    const governorate = findGovernorate(result.data.governorate);
+    const city = governorate && findCity(governorate.code, result.data.city);
+    if (!merchantId) errors.push({ row, field: "merchant", message: `Unknown merchant "${result.data.merchant}"` });
+    if (!governorate) errors.push({ row, field: "governorate", message: `Unknown governorate "${result.data.governorate}"` });
+    else if (!city) errors.push({ row, field: "city", message: `"${result.data.city}" is not a city of ${governorate.en}` });
+    if (!merchantId || !governorate || !city) continue;
     if (result.data.reference) {
       const key = `${merchantId}:${result.data.reference}`;
       if (refsInFile.has(key)) errors.push({ row, field: "reference", message: `Duplicate reference (also row ${refsInFile.get(key)})` });
       refsInFile.set(key, row);
     }
-    parsed.push({ row, data: result.data, merchantId });
+    parsed.push({ row, data: result.data, merchantId, governorate: governorate.code, city: city.code });
   }
 
   // References already used by earlier orders of the same merchant.
@@ -116,7 +121,7 @@ async function validate(req: Request, buffer: Buffer) {
   return { totalRows: rows.length, parsed, errors };
 }
 
-const preview = (parsed: Parsed[]) => parsed.slice(0, 10).map((p) => ({ row: p.row, ...p.data }));
+const preview = (parsed: Parsed[]) => parsed.slice(0, 10).map((p) => ({ row: p.row, ...p.data, governorateCode: p.governorate, cityCode: p.city }));
 
 export async function dryRun(req: Request, buffer: Buffer) {
   const { totalRows, parsed, errors } = await validate(req, buffer);
@@ -134,20 +139,33 @@ export async function commit(req: Request, buffer: Buffer) {
   return withTransaction(async () => {
     const tenantId = req.tenant!._id;
     const barcodes = await freeBarcodes(tenantId, parsed.length);
-    const docs = parsed.map((p, i) => ({
-      tenantId,
-      fullName: p.data.fullName,
-      phone: p.data.phone,
-      address: p.data.address,
-      cost: p.data.cost,
-      description: p.data.description,
-      merchant: p.merchantId,
-      merchantRef: p.data.reference,
-      status: "pending",
-      barcode: barcodes[i],
-      trackingId: generateTrackingId(),
-      statusHistory: [statusEvent(req, "pending")],
-    }));
+    // Shipping prices from the zones, priced in memory (one query for zones and one for merchants).
+    const [zones, merchantPrices] = await Promise.all([
+      Zone.find({ tenantId }).lean(),
+      Merchant.find({ tenantId, _id: { $in: [...new Set(parsed.map((p) => p.merchantId))] } }).select("zonePrices").lean(),
+    ]);
+    const pricesOf = new Map(merchantPrices.map((m) => [String(m._id), m.zonePrices]));
+    const docs = parsed.map((p, i) => {
+      const quote = priceFor(zones, pricesOf.get(String(p.merchantId)), p.governorate, p.city);
+      return {
+        tenantId,
+        fullName: p.data.fullName,
+        phone: p.data.phone,
+        governorate: p.governorate,
+        city: p.city,
+        zone: quote.zone,
+        shippingFee: quote.shippingFee,
+        address: p.data.address,
+        cost: p.data.cost,
+        description: p.data.description,
+        merchant: p.merchantId,
+        merchantRef: p.data.reference,
+        status: "pending",
+        barcode: barcodes[i],
+        trackingId: generateTrackingId(),
+        statusHistory: [statusEvent(req, "pending")],
+      };
+    });
     const orders = await Order.insertMany(docs);
     await AuditEvent.insertMany(
       orders.map((o) => auditEvent(req, { entity: "order", entityId: o._id, action: "CREATE", label: o.barcode, changes: { status: { from: null, to: "pending" }, source: { from: null, to: "import" } } }))
@@ -160,7 +178,7 @@ export async function template() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("orders", { views: [{ rightToLeft: true }] });
   sheet.addRow(TEMPLATE_HEADERS).font = { bold: true };
-  sheet.addRow(["أحمد محمد", "01001234567", "القاهرة - مدينة نصر", 250, "اسم التاجر كما في النظام", "اتصل قبل الوصول", "ORD-1001"]);
+  sheet.addRow(["أحمد محمد", "01001234567", "القاهرة", "مدينة نصر", "شارع عباس العقاد، عمارة 12، الدور 3", 250, "اسم التاجر كما في النظام", "اتصل قبل الوصول", "ORD-1001"]);
   sheet.columns.forEach((c) => (c.width = 22));
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

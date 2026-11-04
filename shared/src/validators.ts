@@ -36,3 +36,14 @@ export function isValidTimezone(tz: string) {
 // ISO-4217 codes the runtime knows about.
 let currencies: Set<string> | null = null;
 export const isCurrency = (c: string) => (currencies ??= new Set(Intl.supportedValuesOf("currency"))).has(c);
+
+// Searchable option lists (comboboxes): a page of matches for `q`, or the labels of selected `ids`.
+export const optionsQuery = z.object({
+  q: z.string().trim().max(60).optional(),
+  ids: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(",").filter(Boolean) : []))
+    .pipe(z.array(objectId).max(100)),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});

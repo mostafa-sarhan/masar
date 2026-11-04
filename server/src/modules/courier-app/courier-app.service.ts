@@ -10,7 +10,7 @@ import { dayStart, localDay } from "../../lib/time";
 const mine = (req: Request) => ({ ...scope(req), courier: new mongoose.Types.ObjectId(req.user!.courierId) });
 
 // Only what's needed on the road (no merchant, fees or audit data).
-const FIELDS = "barcode fullName phone address cost description status reason deliveredAt createdAt";
+const FIELDS = "barcode fullName phone governorate city address cost description status reason deliveredAt createdAt";
 
 export const openOrders = (req: Request) => Order.find({ ...mine(req), status: "with_courier" }).sort({ createdAt: 1 }).select(FIELDS).limit(300).lean();
 

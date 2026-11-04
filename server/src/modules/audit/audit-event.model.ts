@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { tenantScoped, tenantIdField } from "../../lib/tenant-plugin";
 
-export const AUDIT_ENTITIES = ["user", "order", "merchant", "courier", "settings"] as const;
+export const AUDIT_ENTITIES = ["user", "order", "merchant", "courier", "settings", "zone"] as const;
 
 // Who changed what. `changes` is { field: { from, to } }.
 const auditEventSchema = new mongoose.Schema(
@@ -22,6 +22,7 @@ const auditEventSchema = new mongoose.Schema(
 
 auditEventSchema.plugin(tenantScoped);
 auditEventSchema.index({ tenantId: 1, entity: 1, entityId: 1, createdAt: -1 });
+auditEventSchema.index({ tenantId: 1, "actor.id": 1, createdAt: -1 });
 auditEventSchema.index({ tenantId: 1, createdAt: -1 });
 
 export const AuditEvent = mongoose.model("AuditEvent", auditEventSchema);

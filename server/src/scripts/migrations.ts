@@ -15,6 +15,8 @@ import { Tenant } from "../modules/tenants/tenant.model";
 import { PlatformAdmin } from "../modules/platform/platform-admin.model";
 import { PlatformAuditEvent } from "../modules/platform/platform-audit-event.model";
 import { AccessRequest } from "../modules/platform/access-request.model";
+import { Zone } from "../modules/zones/zone.model";
+import { normalizeArabic } from "@masar/shared";
 
 export interface Migration {
   name: string;
@@ -241,10 +243,25 @@ export const migrations: Migration[] = [
     },
   },
   {
+    // Server-side search for merchants and couriers (Arabic-aware, same rules as the client).
+    name: "search-names",
+    async run(db) {
+      let updated = 0;
+      for (const collection of ["merchants", "deliveries"]) {
+        const docs = db.collection(collection).find({ nameSearch: { $exists: false } }, { projection: { name: 1 } });
+        for await (const d of docs) {
+          await db.collection(collection).updateOne({ _id: d._id }, { $set: { nameSearch: normalizeArabic(d.name) } });
+          updated++;
+        }
+      }
+      return { updated };
+    },
+  },
+  {
     // Create the indexes declared in the schemas and drop ones that are no longer declared.
     name: "sync-indexes",
     async run() {
-      for (const model of [Tenant, Order, Courier, Merchant, User, RefreshToken, AuditEvent, PlatformAdmin, PlatformAuditEvent, AccessRequest]) {
+      for (const model of [Tenant, Order, Courier, Merchant, User, RefreshToken, AuditEvent, PlatformAdmin, PlatformAuditEvent, AccessRequest, Zone]) {
         await model.syncIndexes();
       }
       return {};

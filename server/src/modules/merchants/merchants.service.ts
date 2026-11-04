@@ -12,7 +12,10 @@ import { AppError, notFound } from "../../lib/errors";
 import { scope } from "../../lib/scope";
 import { UNSCOPED } from "../../lib/tenant-plugin";
 import { withTransaction } from "../../lib/transaction";
+import { searchOptions } from "../../lib/options";
 import { merchantOrderBody } from "./merchants.schema";
+import { Zone } from "../zones/zone.model";
+import { quoteShipping } from "../zones/zones.service";
 
 // The key identifies merchant and tenant (keys are globally unique hashes). A suspended or
 // expired tenant blocks its merchants' keys too.
@@ -22,7 +25,7 @@ export async function authenticateApiKey(apiKey: string) {
   return { merchant, tenant: await loadUsableTenant(merchant.tenantId) };
 }
 
-export const merchantOptions = (req: Request) => Merchant.find(scope(req)).sort({ name: 1 }).select("name").lean();
+export const merchantOptions = (req: Request) => searchOptions(req, Merchant);
 
 // With the portal logins of each merchant.
 export async function listMerchants(req: Request) {
@@ -61,6 +64,22 @@ export const updateMerchant = (req: Request, id: string, input: { name?: string;
     return publicMerchant(merchant);
   });
 
+// The merchant's own shipping prices per zone (replaces the list). Applies to orders created from now on.
+export async function setZonePrices(req: Request, id: string, prices: { zone: string; price: number }[]) {
+  const zones = await Zone.find({ ...scope(req), _id: { $in: prices.map((p) => p.zone) } }).select("_id").lean();
+  if (zones.length !== prices.length) throw new AppError(400, "VALIDATION_ERROR", "Unknown zone", [{ path: "prices", message: "Unknown zone" }]);
+  return withTransaction(async () => {
+    const merchant = await Merchant.findOne({ _id: id, ...scope(req) });
+    if (!merchant) throw notFound("Merchant");
+    const show = (list: { zone: unknown; price: number }[]) => list.map((p) => `${p.zone}:${p.price}`).join(",");
+    const before = show(merchant.zonePrices ?? []);
+    merchant.set("zonePrices", prices);
+    await merchant.save();
+    await recordAudit(req, { entity: "merchant", entityId: merchant._id, action: "UPDATE_ZONE_PRICES", label: merchant.name, changes: diff({ zonePrices: before }, { zonePrices: show(merchant.zonePrices) }) });
+    return publicMerchant(merchant);
+  });
+}
+
 // Rotate: a new key (shown once); the old one stops working immediately.
 export async function rotateApiKey(req: Request, id: string) {
   const key = generateApiKey();
@@ -95,14 +114,26 @@ export async function createMerchantOrder(req: Request, input: z.infer<typeof me
     throw new AppError(409, "DUPLICATE", "You already sent an order with this reference");
   }
   await assertOrderQuota(req.tenant!);
+  const quote = await quoteShipping(req.tenant!._id, merchant._id, data.governorate, data.city);
 
   const order = await createWithUniqueBarcode({
     ...data,
     ...scope(req),
     merchant: merchant._id,
     merchantRef,
+    zone: quote.zone,
+    shippingFee: quote.shippingFee,
     status: "pending",
     statusHistory: [statusEvent(req, "pending")],
   });
-  return { id: order._id, barcode: order.barcode, trackingId: order.trackingId, reference: order.merchantRef ?? null, status: order.status };
+  return {
+    id: order._id,
+    barcode: order.barcode,
+    trackingId: order.trackingId,
+    reference: order.merchantRef ?? null,
+    status: order.status,
+    governorate: order.governorate ?? null,
+    city: order.city ?? null,
+    shippingFee: order.shippingFee ?? null,
+  };
 }

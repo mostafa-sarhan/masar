@@ -79,7 +79,9 @@ export async function loginPlatform(email = "root@platform.test") {
 export const orderInput = (merchant: string, extra: Record<string, unknown> = {}) => ({
   fullName: "Customer",
   phone: "01001234567",
-  address: "Cairo",
+  governorate: "C",
+  city: "C-NASR-CITY",
+  address: "Abbas El Akkad St, building 12",
   cost: 100,
   merchant,
   ...extra,

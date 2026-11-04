@@ -7,8 +7,11 @@ import { recordAudit } from "../audit/audit.service";
 import { AppError, notFound } from "../../lib/errors";
 import { scope } from "../../lib/scope";
 import { withTransaction } from "../../lib/transaction";
+import { searchOptions } from "../../lib/options";
 
 // With the email of each courier's login, if any.
+export const courierOptions = (req: Request) => searchOptions(req, Courier);
+
 export async function listCouriers(req: Request) {
   const couriers = await Courier.find(scope(req)).sort({ name: 1 }).select("name").lean();
   const accounts = await User.find({ ...scope(req), role: "courier", courierId: { $in: couriers.map((c) => c._id) } }).select("email courierId").lean();

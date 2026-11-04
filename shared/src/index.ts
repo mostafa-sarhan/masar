@@ -8,4 +8,8 @@ export * from "./schemas/orders";
 export * from "./schemas/auth";
 export * from "./schemas/settings";
 export * from "./schemas/access-request";
+export * from "./schemas/zones";
 export * from "./api";
+export * from "./text/arabic-search";
+export * from "./geo/egypt";
+export * from "./geo/match";

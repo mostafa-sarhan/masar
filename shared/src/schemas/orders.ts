@@ -1,6 +1,17 @@
 import { z } from "zod";
 import { ORDER_STATUSES } from "../order-status";
 import { objectId, str, money, day, pagination } from "../validators";
+import { GOVERNORATE_CODES, isCityOf } from "../geo/egypt";
+
+export const governorateCode = z.enum(GOVERNORATE_CODES, { message: "Unknown governorate" });
+export const cityCode = z.string().trim().regex(/^[A-Z]{1,3}-[A-Z0-9-]{1,60}$/, "Unknown city");
+
+// The city must be one of the governorate's (checked when both are present).
+export const cityInGovernorate = (v: { governorate?: string | null; city?: string | null }, ctx: z.RefinementCtx) => {
+  if (v.governorate && v.city && !isCityOf(v.city, v.governorate)) {
+    ctx.addIssue({ code: "custom", path: ["city"], message: "City is not in this governorate" });
+  }
+};
 
 // Strict schemas: unknown fields are rejected, so server-controlled fields can never be sent.
 const orderFields = {
@@ -13,9 +24,14 @@ const orderFields = {
   courier: objectId.nullable(),
   status: z.enum(ORDER_STATUSES),
   reason: z.string().trim().max(300).nullable(),
+  governorate: governorateCode,
+  city: cityCode,
+  // Shipping price for this order; quoted from the tenant's zones, admins may override it.
+  shippingFee: money,
 };
 
-export const createOrderSchema = z
+// Without the city check, so other schemas can pick / omit fields (refined objects can't be).
+export const createOrderObject = z
   .object({
     fullName: orderFields.fullName,
     phone: orderFields.phone,
@@ -24,11 +40,15 @@ export const createOrderSchema = z
     description: orderFields.description.optional(),
     merchant: orderFields.merchant,
     courier: objectId.optional(),
+    governorate: orderFields.governorate,
+    city: orderFields.city,
+    shippingFee: orderFields.shippingFee.optional(),
   })
   .strict();
+export const createOrderSchema = createOrderObject.superRefine(cityInGovernorate);
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 
-export const updateOrderSchema = z.object(orderFields).partial().strict();
+export const updateOrderSchema = z.object(orderFields).partial().strict().superRefine(cityInGovernorate);
 export type OrderUpdate = z.infer<typeof updateOrderSchema>;
 
 export const listQuerySchema = z.object({
@@ -41,6 +61,8 @@ export const listQuerySchema = z.object({
   status: z.enum(ORDER_STATUSES).optional(),
   merchant: objectId.optional(),
   courier: objectId.optional(),
+  governorate: governorateCode.optional(),
+  zone: objectId.optional(),
   date: day.optional(),
   from: day.optional(),
   to: day.optional(),

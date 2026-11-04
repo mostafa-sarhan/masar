@@ -5,7 +5,9 @@ import { Courier } from "../couriers/courier.model";
 import { Merchant } from "../merchants/merchant.model";
 import { AuditEvent } from "../audit/audit-event.model";
 import { OrderStatus, canTransition, isFinal, allowedTransitions } from "./order-status";
-import { forbiddenFields } from "./permissions";
+import { forbiddenFields, canSetShippingFee } from "./permissions";
+import { quoteShipping } from "../zones/zones.service";
+import { isCityOf } from "@masar/shared";
 import { CreateOrderInput, OrderUpdate, ListQuery } from "./orders.schema";
 import { auditEvent, diff, recordAudit } from "../audit/audit.service";
 import { assertOrderQuota } from "../tenants/tenants.service";
@@ -25,6 +27,8 @@ export function buildOrderFilter(req: Request, q: ListQuery) {
   if (q.status) filter.status = q.status;
   if (q.merchant) filter.merchant = new mongoose.Types.ObjectId(q.merchant);
   if (q.courier) filter.courier = new mongoose.Types.ObjectId(q.courier);
+  if (q.governorate) filter.governorate = q.governorate;
+  if (q.zone) filter.zone = new mongoose.Types.ObjectId(q.zone);
   if (q.search) {
     // Prefix match so the phone / barcode indexes are used.
     const rx = new RegExp(`^${escapeRegex(q.search)}`);
@@ -46,7 +50,8 @@ export function buildOrderFilter(req: Request, q: ListQuery) {
 export const populateRefs = <T>(req: Request, query: mongoose.Query<T, unknown>) =>
   query
     .populate({ path: "courier", select: "name", match: scope(req) })
-    .populate({ path: "merchant", select: "name", match: scope(req) });
+    .populate({ path: "merchant", select: "name", match: scope(req) })
+    .populate({ path: "zone", select: "name", match: scope(req) });
 
 async function assertExists(req: Request, model: typeof Courier | typeof Merchant, id: string | null | undefined, what: string) {
   if (id && !(await model.exists({ _id: id, ...scope(req) }))) {
@@ -96,10 +101,15 @@ export async function createOrder(req: Request, input: CreateOrderInput) {
   // Reached by staff and by the merchant portal (which fixes `merchant` to the merchant's own id).
   await Promise.all([assertExists(req, Merchant, input.merchant, "Merchant"), assertExists(req, Courier, input.courier, "Courier")]);
   await assertOrderQuota(req.tenant!);
+  if (input.shippingFee !== undefined && !canSetShippingFee(req.user!.role)) {
+    throw new AppError(403, "FORBIDDEN_FIELDS", "You can't change these fields", ["shippingFee"]);
+  }
+  const quote = await quoteShipping(req.tenant!._id, input.merchant, input.governorate, input.city);
+  const shippingFee = input.shippingFee ?? quote.shippingFee;
 
   return withTransaction(async () => {
     const status = input.courier ? "with_courier" : "pending";
-    const order = await createWithUniqueBarcode({ ...input, ...scope(req), status, statusHistory: [statusEvent(req, status)] });
+    const order = await createWithUniqueBarcode({ ...input, ...scope(req), zone: quote.zone, shippingFee, status, statusHistory: [statusEvent(req, status)] });
     await recordAudit(req, { entity: "order", entityId: order._id, action: "CREATE", label: order.barcode, changes: { status: { from: null, to: order.status } } });
     return order;
   });
@@ -121,6 +131,26 @@ export async function planUpdate(req: Request, order: OrderDoc, input: OrderUpda
   const from = order.status as OrderStatus;
   const to = input.status;
 
+  // The shipping price is locked once the order is delivered (it's in the fee snapshot then).
+  if (input.shippingFee !== undefined && from === "delivered" && input.shippingFee !== order.shippingFee) {
+    throw new AppError(409, "SHIPPING_FEE_LOCKED", "The shipping price can't change after delivery");
+  }
+  // A new destination or merchant is re-quoted, unless the admin sets the price in the same change.
+  const governorate = input.governorate ?? order.governorate;
+  let city = input.city !== undefined ? input.city : order.city;
+  // Moving to another governorate without naming a city clears the old one.
+  if (input.governorate && input.governorate !== order.governorate && input.city === undefined) city = set.city = null;
+  if (city && governorate && !isCityOf(city, governorate)) {
+    throw new AppError(400, "VALIDATION_ERROR", "City is not in this governorate", [{ path: "city", message: "City is not in this governorate" }]);
+  }
+  const placeChanged = (input.governorate !== undefined && input.governorate !== order.governorate) || (input.city !== undefined && input.city !== order.city);
+  const merchantChanged = input.merchant !== undefined && input.merchant !== order.merchant?.toString();
+  if ((placeChanged || merchantChanged) && from !== "delivered") {
+    const quote = await quoteShipping(req.tenant!._id, input.merchant ?? order.merchant, governorate, city);
+    set.zone = quote.zone;
+    if (input.shippingFee === undefined) set.shippingFee = quote.shippingFee;
+  }
+
   if (to && to !== from) {
     if (!canTransition(from, to, role)) {
       throw new AppError(409, "INVALID_STATUS_TRANSITION", `Can't change status from ${from} to ${to}`, {
@@ -140,7 +170,11 @@ export async function planUpdate(req: Request, order: OrderDoc, input: OrderUpda
       set.isArchived = false;
     }
     // Lock in the fees that apply right now; drop them if a delivery is corrected.
-    if (to === "delivered") set.fees = await feesFor(req, (input.merchant ?? order.merchant)?.toString());
+    if (to === "delivered") {
+      const fees = await feesFor(req, (input.merchant ?? order.merchant)?.toString());
+      const shippingFee = (set.shippingFee !== undefined ? set.shippingFee : order.shippingFee) as number | null;
+      set.fees = { ...fees, company: shippingFee ?? fees.company };
+    }
     if (from === "delivered") set.fees = null;
   } else {
     delete set.status;

@@ -1,6 +1,8 @@
 // Request schemas shared with the client.
 export {
   createOrderSchema,
+  createOrderObject,
+  cityInGovernorate,
   updateOrderSchema,
   listQuerySchema,
   pagedListQuery,

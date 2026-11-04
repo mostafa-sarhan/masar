@@ -7,6 +7,7 @@ import { ADMIN_ROLES } from "../users/user.model";
 import { tenantSettings } from "../tenants/tenants.service";
 import { summarize, FeeOverrides, StatusRow } from "./money";
 import { scope } from "../../lib/scope";
+import { getGovernorate } from "@masar/shared";
 
 type Filter = Record<string, unknown>;
 
@@ -44,10 +45,14 @@ export async function summaryReport(req: Request, q: ListQuery, o: FeeOverrides)
   return { data: summarize(await totalsByStatus(req, buildOrderFilter(req, q)), deductions, overrides), fees };
 }
 
-// Totals grouped by merchant or courier, with the referenced name.
-export async function groupedReport(req: Request, field: "merchant" | "courier", q: ListQuery, o: FeeOverrides) {
+export type ReportGroup = "merchant" | "courier" | "zone" | "governorate";
+// Where each group's display name comes from: a collection lookup, or the shared location data.
+const GROUP_COLLECTIONS: Record<ReportGroup, string | null> = { merchant: "merchants", courier: "deliveries", zone: "zones", governorate: null };
+
+// Totals grouped by merchant, courier, zone or governorate, with the group's name.
+export async function groupedReport(req: Request, field: ReportGroup, q: ListQuery, o: FeeOverrides) {
   const { overrides, fees, deductions } = context(req, o);
-  const collection = field === "merchant" ? "merchants" : "deliveries";
+  const collection = GROUP_COLLECTIONS[field];
   const rows = await Order.aggregate([
     { $match: buildOrderFilter(req, q) },
     { $group: { _id: { ref: `$${field}`, status: "$status" }, ...statusGroupStages(req) } },
@@ -57,14 +62,20 @@ export async function groupedReport(req: Request, field: "merchant" | "courier",
         rows: { $push: { status: "$_id.status", count: "$count", amount: "$amount", courierFees: "$courierFees", companyFees: "$companyFees" } },
       },
     },
-    { $lookup: { from: collection, localField: "_id", foreignField: "_id", as: "ref" } },
-    { $project: { rows: 1, name: { $ifNull: [{ $first: "$ref.name" }, null] } } },
-    { $sort: { name: 1 } },
+    ...(collection
+      ? [
+          { $lookup: { from: collection, localField: "_id", foreignField: "_id", as: "ref" } },
+          { $project: { rows: 1, name: { $ifNull: [{ $first: "$ref.name" }, null] } } },
+        ]
+      : [{ $project: { rows: 1, name: null } }]),
   ]);
-  const data = rows.map((r: { _id: mongoose.Types.ObjectId | null; name: string | null; rows: StatusRow[] }) => ({
-    [field]: r._id ? { _id: r._id, name: r.name } : null,
-    ...summarize(r.rows, deductions, overrides),
-  }));
+  const groups = rows.map((r: { _id: mongoose.Types.ObjectId | string | null; name: string | null; rows: StatusRow[] }) => {
+    const name = field === "governorate" && r._id ? (getGovernorate(String(r._id))?.ar ?? String(r._id)) : r.name;
+    return { name, row: { [field]: r._id ? { _id: r._id, name } : null, ...summarize(r.rows, deductions, overrides) } };
+  });
+  // By name in Arabic order; orders without a merchant / courier / zone / governorate last.
+  groups.sort((a, b) => (a.name === null ? 1 : b.name === null ? -1 : a.name.localeCompare(b.name, "ar")));
+  const data = groups.map((g) => g.row);
   return { data, fees };
 }
 

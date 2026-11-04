@@ -32,6 +32,13 @@ const orderSchema = new mongoose.Schema(
     description: { type: String, trim: true, maxlength: 1000 },
     // Why an order was returned or refused (set by the courier or staff).
     reason: { type: String, trim: true, maxlength: 300, default: null },
+    // Where the order goes (codes from @masar/shared geo data; empty on orders created before locations).
+    governorate: { type: String, default: null },
+    city: { type: String, default: null },
+    // Zone and shipping price the order was quoted with at creation (admins may change the price until
+    // delivery). At delivery the price becomes the company-fee snapshot below.
+    zone: { type: mongoose.Schema.Types.ObjectId, ref: "Zone", default: null },
+    shippingFee: { type: Number, min: 0, default: null },
     merchant: { type: mongoose.Schema.Types.ObjectId, ref: "Merchant" },
     courier: { type: mongoose.Schema.Types.ObjectId, ref: "Courier", default: null },
     status: { type: String, enum: ORDER_STATUSES, default: "pending", required: true },
@@ -63,6 +70,8 @@ orderSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
 orderSchema.index({ tenantId: 1, courier: 1, status: 1 });
 orderSchema.index({ tenantId: 1, merchant: 1, createdAt: -1 });
 orderSchema.index({ tenantId: 1, phone: 1 });
+orderSchema.index({ tenantId: 1, governorate: 1, createdAt: -1 });
+orderSchema.index({ tenantId: 1, zone: 1, createdAt: -1 });
 orderSchema.index({ tenantId: 1, isArchived: 1, status: 1, deliveredAt: 1 }); // archive job
 orderSchema.index(
   { tenantId: 1, merchant: 1, merchantRef: 1 },

@@ -91,7 +91,12 @@ export async function setRole(req: Request, id: string, newRole: Role) {
 }
 
 export async function listAuditLogs(req: Request, q: z.infer<typeof auditLogQuery>) {
-  const filter = { ...scope(req), ...(q.entity && { entity: q.entity }), ...(q.entityId && { entityId: q.entityId }) };
+  const filter = {
+    ...scope(req),
+    ...(q.entity && { entity: q.entity }),
+    ...(q.entityId && { entityId: q.entityId }),
+    ...(q.actor && { "actor.id": q.actor }),
+  };
   const [items, total] = await Promise.all([
     AuditEvent.find(filter).sort({ createdAt: -1 }).skip((q.page - 1) * q.limit).limit(q.limit),
     AuditEvent.countDocuments(filter),

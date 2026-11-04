@@ -9,4 +9,4 @@ export const staffRole = z.enum(["owner", "admin", "employee"]);
 export const createUserBody = z.object({ email: str.email, password: z.string().max(200), role: staffRole }).strict();
 export const setPasswordBody = z.object({ newPassword: z.string().max(200) }).strict();
 export const setRoleBody = z.object({ role: staffRole }).strict();
-export const auditLogQuery = pagination.extend({ entity: z.enum(AUDIT_ENTITIES).optional(), entityId: objectId.optional() });
+export const auditLogQuery = pagination.extend({ entity: z.enum(AUDIT_ENTITIES).optional(), entityId: objectId.optional(), actor: objectId.optional() });

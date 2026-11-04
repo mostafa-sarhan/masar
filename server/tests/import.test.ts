@@ -5,14 +5,14 @@ vi.hoisted(() => {
 });
 
 import ExcelJS from "exceljs";
-import { useDb, loginAs, seedRefs, createTenant, UNSCOPED } from "./helpers";
+import { useDb, loginAs, seedRefs, createTenant, getTenant, UNSCOPED } from "./helpers";
 import { Order } from "../src/modules/orders/order.model";
 import { AuditEvent } from "../src/modules/audit/audit-event.model";
 import { TRACKING_ID_PATTERN } from "../src/modules/orders/order.model";
 
 useDb();
 
-const HEADERS = ["اسم العميل", "رقم الهاتف", "العنوان", "المبلغ", "الشركة", "ملاحظات", "المرجع"];
+const HEADERS = ["اسم العميل", "رقم الهاتف", "المحافظة", "المدينة", "العنوان", "المبلغ", "الشركة", "ملاحظات", "المرجع"];
 
 async function xlsx(rows: unknown[][], headers = HEADERS) {
   const wb = new ExcelJS.Workbook();
@@ -25,10 +25,11 @@ async function xlsx(rows: unknown[][], headers = HEADERS) {
 const upload = (agent: Awaited<ReturnType<typeof loginAs>>, file: Buffer, mode = "dry-run", name = "orders.xlsx", contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") =>
   agent.post("/orders/import").query({ mode }).attach("file", file, { filename: name, contentType });
 
+// Places written the way people type them: missing hamza, ه for ة, English names, aliases.
 const good = [
-  ["أحمد", "٠١٠٠١٢٣٤٥٦٧", "القاهرة", "١٥٠", "Acme", "اتصل أولًا", "R-1"],
-  ["منى", "01112223334", "الجيزة", 99.5, "acme", "", ""],
-  ["Omar", "+201234567890", "Alex", 0, "Acme", "", "R-2"],
+  ["أحمد", "٠١٠٠١٢٣٤٥٦٧", "القاهره", "مدينه نصر", "عباس العقاد 12", "١٥٠", "Acme", "اتصل أولًا", "R-1"],
+  ["منى", "01112223334", "جيزة", "6 اكتوبر", "الحي الثامن", 99.5, "acme", "", ""],
+  ["Omar", "+201234567890", "Alexandria", "Smouha", "Fawzy Moaz St", 0, "Acme", "", "R-2"],
 ];
 
 describe("Excel import", () => {
@@ -51,25 +52,26 @@ describe("Excel import", () => {
     const res = await upload(admin, await xlsx(good));
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ totalRows: 3, validRows: 3, errors: [] });
-    expect(res.body.data.preview[0]).toMatchObject({ row: 2, phone: "01001234567", cost: 150, merchant: "Acme" });
+    expect(res.body.data.preview[0]).toMatchObject({ row: 2, phone: "01001234567", cost: 150, merchant: "Acme", governorateCode: "C", cityCode: "C-NASR-CITY" });
+    expect(res.body.data.preview.map((p: { cityCode: string }) => p.cityCode)).toEqual(["C-NASR-CITY", "GZ-6TH-OF-OCTOBER", "ALX-SMOUHA"]);
     expect(await Order.countDocuments().setOptions(UNSCOPED)).toBe(0);
   });
 
   it("reports every problem with its row number", async () => {
     await seedRefs();
     const admin = await loginAs("admin");
-    await upload(admin, await xlsx([["Old", "01000000000", "x", 1, "Acme", "", "USED"]]), "commit");
+    await upload(admin, await xlsx([["Old", "01000000000", "القاهرة", "المعادي", "x", 1, "Acme", "", "USED"]]), "commit");
     const res = await upload(
       admin,
       await xlsx([
-        ["", "01001234567", "x", 10, "Acme"], // row 2: no name
-        ["B", "123", "x", 10, "Acme"], // row 3: bad phone
-        ["C", "01001234567", "x", "abc", "Acme"], // row 4: bad cost
-        ["D", "01001234567", "x", 10, "Nobody"], // row 5: unknown merchant
-        ["E", "01001234567", "x", 10, "Acme", "", "DUP"], // row 6
-        ["F", "01001234567", "x", 10, "Acme", "", "DUP"], // row 7: duplicate in file
-        ["G", "01001234567", "x", 10, "Acme", "", "USED"], // row 8: already used
-        ["H", "01001234567", "x", 10, "Acme"], // row 9: fine
+        ["", "01001234567", "القاهرة", "المعادي", "x", 10, "Acme"], // row 2: no name
+        ["B", "123", "القاهرة", "المعادي", "x", 10, "Acme"], // row 3: bad phone
+        ["C", "01001234567", "القاهرة", "المعادي", "x", "abc", "Acme"], // row 4: bad cost
+        ["D", "01001234567", "القاهرة", "المعادي", "x", 10, "Nobody"], // row 5: unknown merchant
+        ["E", "01001234567", "القاهرة", "المعادي", "x", 10, "Acme", "", "DUP"], // row 6
+        ["F", "01001234567", "القاهرة", "المعادي", "x", 10, "Acme", "", "DUP"], // row 7: duplicate in file
+        ["G", "01001234567", "القاهرة", "المعادي", "x", 10, "Acme", "", "USED"], // row 8: already used
+        ["H", "01001234567", "القاهرة", "المعادي", "x", 10, "Acme"], // row 9: fine
       ])
     );
     const errors = res.body.data.errors.map((e: { row: number; field: string }) => `${e.row}:${e.field}`);
@@ -94,10 +96,39 @@ describe("Excel import", () => {
     expect(await AuditEvent.countDocuments({ action: "CREATE" }).setOptions(UNSCOPED)).toBe(3);
   });
 
+  it("reports governorates and cities it can't match", async () => {
+    await seedRefs();
+    const admin = await loginAs("admin");
+    const res = await upload(
+      admin,
+      await xlsx([
+        ["A", "01001234567", "أطلانتس", "المعادي", "x", 10, "Acme"], // row 2: unknown governorate
+        ["B", "01001234567", "الجيزة", "مدينة نصر", "x", 10, "Acme"], // row 3: city of another governorate
+        ["C", "01001234567", "القاهرة", "", "x", 10, "Acme"], // row 4: no city
+        ["D", "01001234567", "الاسكندرية", "سموحه", "x", 10, "Acme"], // row 5: fine
+      ])
+    );
+    const errors = res.body.data.errors.map((e: { row: number; field: string }) => `${e.row}:${e.field}`);
+    expect(errors).toEqual(["2:governorate", "3:city", "4:city"]);
+    expect(res.body.data.validRows).toBe(1);
+  });
+
+  it("commit prices each order from the zones and the merchant's own prices", async () => {
+    const { merchant } = await seedRefs();
+    const tenant = await getTenant();
+    const admin = await loginAs("admin");
+    const cairo = (await admin.post("/zones").send({ name: "القاهرة", price: 45, governorates: ["C"] })).body.data;
+    await admin.post("/zones").send({ name: "الإسكندرية", price: 70, governorates: ["ALX"] });
+    await admin.put(`/merchants/${merchant}/zone-prices`).send({ prices: [{ zone: cairo._id, price: 30 }] });
+    expect((await upload(admin, await xlsx(good), "commit")).status).toBe(201);
+    const fees = Object.fromEntries((await Order.find({ tenantId: tenant._id }).lean()).map((o) => [o.city, o.shippingFee]));
+    expect(fees).toEqual({ "C-NASR-CITY": 30, "GZ-6TH-OF-OCTOBER": null, "ALX-SMOUHA": 70 });
+  });
+
   it("commit with any invalid row saves nothing", async () => {
     await seedRefs();
     const admin = await loginAs("admin");
-    const res = await upload(admin, await xlsx([...good, ["Bad", "1", "x", 1, "Acme"]]), "commit");
+    const res = await upload(admin, await xlsx([...good, ["Bad", "1", "القاهرة", "المعادي", "x", 1, "Acme"]]), "commit");
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("IMPORT_INVALID");
     expect(res.body.error.details.errors[0]).toMatchObject({ row: 5, field: "phone" });
@@ -120,7 +151,7 @@ describe("Excel import", () => {
     const big = Buffer.concat([await xlsx(good), Buffer.alloc(70_000)]);
     const tooBig = await upload(admin, big);
     expect(tooBig.status).toBe(413);
-    const many = Array.from({ length: 21 }, (_, i) => [`N${i}`, "01001234567", "x", 1, "Acme"]);
+    const many = Array.from({ length: 21 }, (_, i) => [`N${i}`, "01001234567", "القاهرة", "المعادي", "x", 1, "Acme"]);
     expect((await upload(admin, await xlsx(many))).body.error.message).toMatch(/At most 20 rows/);
   });
 
@@ -128,7 +159,7 @@ describe("Excel import", () => {
     const admin = await loginAs("admin");
     const res = await upload(admin, await xlsx([["a", "b"]], ["الاسم", "something"]));
     expect(res.body.error.code).toBe("INVALID_FILE");
-    expect(res.body.error.details.map((d: { field: string }) => d.field)).toEqual(["phone", "address", "cost", "merchant"]);
+    expect(res.body.error.details.map((d: { field: string }) => d.field)).toEqual(["phone", "governorate", "city", "address", "cost", "merchant"]);
   });
 
   it("respects the monthly order quota", async () => {

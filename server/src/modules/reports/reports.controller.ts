@@ -9,7 +9,7 @@ export async function summary(req: Request, res: Response) {
   ok(res, data, { fees });
 }
 
-export const byField = (field: "merchant" | "courier") => async (req: Request, res: Response) => {
+export const byField = (field: reports.ReportGroup) => async (req: Request, res: Response) => {
   const { courierFee, companyFee, ...q } = reportQuery.parse(req.query);
   const { data, fees } = await reports.groupedReport(req, field, q, { courierFee, companyFee });
   ok(res, data, { fees });

@@ -103,7 +103,7 @@ describe("merchant portal", () => {
 
   it("creates orders for itself only", async () => {
     const { merchant, beta, admin } = await portal();
-    const input = { fullName: "C", phone: "01001234567", address: "Giza", cost: 75 };
+    const input = { fullName: "C", phone: "01001234567", governorate: "GZ", city: "GZ-DOKKI", address: "Tahrir St 5", cost: 75 };
     expect((await merchant.post("/portal/orders").send({ ...input, merchant: beta.id })).status).toBe(400);
     const res = await merchant.post("/portal/orders").send(input);
     expect(res.status).toBe(201);

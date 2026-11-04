@@ -46,6 +46,12 @@ export interface Order {
   status: OrderStatus;
   merchant: Ref | null;
   courier: Ref | null;
+  // Destination (codes from the shared location list; null on orders created before locations).
+  governorate?: string | null;
+  city?: string | null;
+  zone?: Ref | null;
+  // Quoted shipping price (null = no zone matched; the flat company fee applies at delivery).
+  shippingFee?: number | null;
   merchantRef?: string;
   isArchived: boolean;
   deliveredAt: string | null;
@@ -117,4 +123,18 @@ export interface DashboardOverview {
     late: boolean;
   }[];
   week: { day: string; delivered: number }[];
+}
+
+export interface Zone {
+  _id: string;
+  name: string;
+  price: number;
+  governorates: string[];
+  cities: string[];
+}
+
+export interface ShippingQuote {
+  zone: string | null;
+  zoneName: string | null;
+  shippingFee: number | null;
 }

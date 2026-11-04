@@ -10,12 +10,13 @@ import { tenantSettings } from "../tenants/tenants.service";
 import { notFound } from "../../lib/errors";
 import { scope } from "../../lib/scope";
 import { portalOrderBody } from "./merchant-portal.schema";
+import { quoteShipping } from "../zones/zones.service";
 
 const merchantId = (req: Request) => new mongoose.Types.ObjectId(req.user!.merchantId);
 const mine = (req: Request) => ({ merchant: merchantId(req) });
 
 // What a merchant may see about its orders (no courier details, fees or audit data).
-const FIELDS = "barcode trackingId merchantRef fullName phone address cost description status reason deliveredAt createdAt updatedAt";
+const FIELDS = "barcode trackingId merchantRef fullName phone governorate city address cost shippingFee description status reason deliveredAt createdAt updatedAt";
 
 export async function listOwnOrders(req: Request, q: Parameters<typeof listOrders>[1], page: number, limit: number) {
   const { items, meta } = await listOrders(req, q, page, limit, mine(req));
@@ -28,6 +29,9 @@ export async function getOwnOrder(req: Request, id: string) {
   if (!order) throw notFound("Order");
   return order;
 }
+
+// The shipping price this merchant would pay for a destination.
+export const quote = (req: Request, governorate: string, city?: string) => quoteShipping(req.tenant!._id, merchantId(req), governorate, city);
 
 export const createOwnOrder = (req: Request, input: z.infer<typeof portalOrderBody>) =>
   createOrder(req, { ...input, merchant: req.user!.merchantId! });

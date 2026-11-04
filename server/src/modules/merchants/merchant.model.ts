@@ -1,5 +1,6 @@
 import mongoose, { HydratedDocument, InferSchemaType } from "mongoose";
 import { tenantScoped, tenantIdField } from "../../lib/tenant-plugin";
+import { searchableName } from "../../lib/searchable-name";
 
 const merchantSchema = new mongoose.Schema(
   {
@@ -7,6 +8,11 @@ const merchantSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true, maxlength: 100 },
     // Overrides the tenant's company fee for this merchant (null = tenant default).
     companyFee: { type: Number, default: null, min: 0 },
+    // The merchant's own shipping price per zone (overrides the zone's price).
+    zonePrices: {
+      type: [new mongoose.Schema({ zone: { type: mongoose.Schema.Types.ObjectId, ref: "Zone", required: true }, price: { type: Number, required: true, min: 0 } }, { _id: false })],
+      default: [],
+    },
     // API key: only its SHA-256 is stored; the key itself is shown once on creation/rotation.
     apiKeyHash: { type: String, select: false },
     apiKeyPrefix: { type: String }, // first characters, to recognise the key in the UI
@@ -17,6 +23,7 @@ const merchantSchema = new mongoose.Schema(
 );
 
 merchantSchema.plugin(tenantScoped);
+merchantSchema.plugin(searchableName);
 merchantSchema.index({ tenantId: 1, name: 1 }, { unique: true });
 // Globally unique: the key alone identifies merchant and tenant.
 merchantSchema.index({ apiKeyHash: 1 }, { unique: true, sparse: true });
@@ -28,6 +35,7 @@ export const publicMerchant = (m: MerchantDocument) => ({
   _id: m._id,
   name: m.name,
   companyFee: m.companyFee ?? null,
+  zonePrices: (m.zonePrices ?? []).map((p) => ({ zone: p.zone, price: p.price })),
   apiKeyPrefix: m.apiKeyPrefix ?? null,
   hasActiveKey: !!m.apiKeyPrefix && !m.apiKeyRevokedAt,
   apiKeyCreatedAt: m.apiKeyCreatedAt ?? null,

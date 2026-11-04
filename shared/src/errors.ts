@@ -23,6 +23,9 @@ export const ERROR_CODES = [
   "IMPORT_INVALID",
   "RATE_LIMITED",
   "PAYLOAD_TOO_LARGE",
+  "ZONE_OVERLAP",
+  "SHIPPING_FEE_LOCKED",
+  "DEMO_DISABLED",
   "INTERNAL_ERROR",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];

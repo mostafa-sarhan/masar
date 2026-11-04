@@ -81,6 +81,18 @@ describe("order permissions", () => {
     expect(await AuditEvent.countDocuments({ entityId: order._id, action: "DELETE" }).setOptions(UNSCOPED)).toBe(1);
   });
 
+  it("the audit log can be filtered by who made the change", async () => {
+    const { admin, order } = await setup();
+    const employee = await loginAs("employee");
+    await employee.patch(`/orders/${order._id}`).send({ description: "note" });
+    const users = (await admin.get("/users")).body.data as { id: string; email: string }[];
+    const empId = users.find((u) => u.email === "employee@test.com")!.id;
+    const byEmployee = (await admin.get("/users/audit-logs").query({ actor: empId })).body.data;
+    expect(byEmployee.length).toBeGreaterThan(0);
+    expect(byEmployee.every((e: { actor: { email: string } }) => e.actor.email === "employee@test.com")).toBe(true);
+    expect((await admin.get("/users/audit-logs").query({ actor: "nope" })).status).toBe(400);
+  });
+
   it("uses one response shape for success and errors", async () => {
     const { admin } = await setup();
     const list = await admin.get("/orders");

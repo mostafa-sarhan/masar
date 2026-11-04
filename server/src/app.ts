@@ -25,6 +25,8 @@ import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import importRoutes from "./modules/import/import.routes";
 import platformRoutes from "./modules/platform/platform.routes";
 import accessRequestRoutes from "./modules/platform/access-requests.routes";
+import zoneRoutes from "./modules/zones/zones.routes";
+import locationRoutes from "./modules/locations/locations.routes";
 
 export function createApp() {
   const app = express();
@@ -64,6 +66,8 @@ export function createApp() {
   app.use("/merchants", merchantRoutes);
   app.use("/reports", reportRoutes);
   app.use("/settings", settingsRoutes);
+  app.use("/zones", zoneRoutes);
+  app.use("/locations", locationRoutes);
   app.use("/courier", courierAppRoutes);
   app.use("/portal", merchantPortalRoutes);
   app.use("/track", trackingRoutes);

@@ -9,6 +9,7 @@ router.use(requireAuth, requireRole("merchant"));
 router.get("/orders", c.list);
 router.post("/orders", c.create);
 router.get("/orders/:id", c.get);
+router.get("/quote", c.quote);
 router.get("/statement", c.statement);
 router.get("/api-key", c.apiKey);
 router.post("/api-key", c.rotateApiKey);

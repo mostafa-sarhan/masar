@@ -20,3 +20,7 @@ export async function createAccount(req: Request, res: Response) {
 export async function rename(req: Request, res: Response) {
   ok(res, await couriers.renameCourier(req, idParams.parse(req.params).id, courierBody.parse(req.body).name));
 }
+
+export async function options(req: Request, res: Response) {
+  ok(res, await couriers.courierOptions(req));
+}
