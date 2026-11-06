@@ -99,6 +99,9 @@ Copy backups off the server too (a backup on the same disk doesn't survive a los
 
 ### Rollback
 
+On the Mac: `git checkout <previous commit> && deploy/update.sh prod && git checkout main`. If a migration
+changed data, restore the backup that `deploy.sh` took just before migrating (above).
+
 ## Setting up from scratch (what was done on Nov 6)
 
 ```sh
