@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { login as apiLogin, logout as apiLogout, me, refresh, type Session } from "@/features/auth/api/auth-api";
 import { ApiError, setSessionLostHandler } from "@/lib/api-client";
 import { setDisplayPrefs } from "@/lib/locale";
+import type { Role } from "@masar/shared";
 import type { SessionUser, SessionTenant } from "@/lib/types";
+import { demoLogin as apiDemoLogin } from "@/features/demo/api/demo-api";
 import { AuthContext } from "./auth-context";
 
 // The session lives in httpOnly cookies; here we only keep who is logged in.
@@ -47,6 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [setTenant]
   );
 
+  const demoLogin = useCallback(
+    async (role: Role) => {
+      setSessionError(null);
+      const data = await apiDemoLogin(role);
+      setUser(data.user);
+      setTenant(data.tenant);
+      return data.user;
+    },
+    [setTenant]
+  );
+
   // After a successful password change the server issues fresh cookies.
   const passwordChanged = useCallback((nextUser: SessionUser) => setUser(nextUser), []);
   // After saving settings (currency, timezone shown across the app).
@@ -58,6 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, tenant, checking, sessionError, login, logout, passwordChanged, tenantChanged }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, tenant, checking, sessionError, login, demoLogin, logout, passwordChanged, tenantChanged }}>{children}</AuthContext.Provider>
   );
 }

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Feedback";
 import { errorMessage } from "@/lib/errors";
 import { homeFor } from "@/lib/roles";
+import { DemoBanner } from "@/features/demo/components/DemoBanner";
+import { DemoLogins } from "@/features/demo/components/DemoLogins";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -33,7 +35,8 @@ export default function LoginPage() {
   const message = error || (sessionError ? errorMessage(sessionError) : "");
 
   return (
-    <AuthShell title="تسجيل الدخول" description="ادخل ببريدك الإلكتروني في الشركة.">
+    <AuthShell title="تسجيل الدخول" description="ادخل ببريدك الإلكتروني في الشركة." banner={<DemoBanner />}>
+      <DemoLogins className="mb-7 border-b border-rule pb-7" />
       <form onSubmit={submit} className="space-y-4">
         <Field label="البريد الإلكتروني">{(p) => <Input {...p} type="email" dir="ltr" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />}</Field>
         <Field label="كلمة المرور">{(p) => <Input {...p} type="password" dir="ltr" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />}</Field>

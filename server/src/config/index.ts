@@ -53,6 +53,15 @@ export const config = {
     maxBytes: num("IMPORT_MAX_BYTES", 2 * 1024 * 1024),
     maxRows: num("IMPORT_MAX_ROWS", 1000),
   },
+  // Demo mode: a separate demo company, reset on a schedule, with one-click logins.
+  demo: {
+    enabled: process.env.DEMO_MODE === "true",
+    slug: process.env.DEMO_TENANT_SLUG || "demo",
+    name: process.env.DEMO_TENANT_NAME || "شركة مسار التجريبية",
+    emailDomain: process.env.DEMO_EMAIL_DOMAIN || "masar-demo.test",
+    whatsapp: (process.env.DEMO_WHATSAPP || "").replace(/\D/g, ""),
+    resetMinutes: num("DEMO_RESET_MINUTES", 60),
+  },
   sentry: {
     dsn: process.env.SENTRY_DSN || "",
     environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development",

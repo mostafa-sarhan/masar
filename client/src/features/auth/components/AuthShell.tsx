@@ -4,24 +4,28 @@ import { Logo } from "@/components/ui/Logo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 // Two-column frame for sign-in screens: the form on a sheet, and a navy manifest panel.
-export function AuthShell({ title, description, children, aside }: { title: string; description?: ReactNode; children: ReactNode; aside?: ReactNode }) {
+// `banner` (e.g. the demo notice) spans the top.
+export function AuthShell({ title, description, children, aside, banner }: { title: string; description?: ReactNode; children: ReactNode; aside?: ReactNode; banner?: ReactNode }) {
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1fr_1.05fr]">
-      <div className="flex flex-col px-5 py-6 sm:px-10">
-        <div className="flex items-center justify-between">
-          <Link to="/welcome" className="text-ink">
-            <Logo />
-          </Link>
-          <ThemeToggle className="text-ink-2" />
+    <>
+      {banner}
+      <div className="grid min-h-dvh lg:grid-cols-[1fr_1.05fr]">
+        <div className="flex flex-col px-5 py-6 sm:px-10">
+          <div className="flex items-center justify-between">
+            <Link to="/welcome" className="text-ink">
+              <Logo />
+            </Link>
+            <ThemeToggle className="text-ink-2" />
+          </div>
+          <div className="m-auto w-full max-w-sm py-10">
+            <h1 className="text-2xl font-semibold text-ink">{title}</h1>
+            {description && <p className="mt-1.5 text-sm text-ink-2">{description}</p>}
+            <div className="mt-7">{children}</div>
+          </div>
         </div>
-        <div className="m-auto w-full max-w-sm py-10">
-          <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-          {description && <p className="mt-1.5 text-sm text-ink-2">{description}</p>}
-          <div className="mt-7">{children}</div>
-        </div>
+        <div className="relative hidden overflow-hidden bg-rail p-10 text-rail-ink lg:flex lg:flex-col lg:justify-end">{aside ?? <ManifestAside />}</div>
       </div>
-      <div className="relative hidden overflow-hidden bg-rail p-10 text-rail-ink lg:flex lg:flex-col lg:justify-end">{aside ?? <ManifestAside />}</div>
-    </div>
+    </>
   );
 }
 

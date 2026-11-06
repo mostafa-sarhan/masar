@@ -7,6 +7,7 @@ import { recordAudit } from "../audit/audit.service";
 import { AppError } from "../../lib/errors";
 import { UNSCOPED } from "../../lib/tenant-plugin";
 import { withTransaction } from "../../lib/transaction";
+import { isDemoTenant } from "../../lib/demo";
 import { verifyPassword, needsRehash, hashPassword, assertStrongPassword } from "./password";
 import { signAccessToken, issueRefreshToken, rotateRefreshToken, revokeRefreshToken, revokeAllSessions, setSessionCookies, clearSessionCookies } from "./tokens";
 
@@ -19,12 +20,13 @@ export const publicTenant = (t: TenantDoc) => ({
   trialEndsAt: t.trialEndsAt,
   currency: t.settings?.currency,
   timezone: t.settings?.timezone,
+  demo: isDemoTenant(t),
 });
 
 const invalidCredentials = () => new AppError(401, "INVALID_CREDENTIALS", "Invalid email or password");
 const guard = loginGuard("tenant");
 
-async function startSession(res: Response, user: UserDoc) {
+export async function startSession(res: Response, user: UserDoc) {
   const { token } = await issueRefreshToken("tenant", user);
   setSessionCookies(res, "tenant", signAccessToken("tenant", user), token);
 }

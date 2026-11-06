@@ -11,6 +11,7 @@ import { useFeedback } from "@/components/ui/feedback-context";
 import ChangePasswordForm from "@/features/auth/components/ChangePasswordForm";
 import { changeOwnPassword } from "@/features/auth/api/auth-api";
 import { CommandPalette } from "./CommandPalette";
+import { DemoBanner } from "@/features/demo/components/DemoBanner";
 import { isAdmin as isAdminRole, ROLE_LABELS } from "@/lib/roles";
 import { cn } from "@/lib/cn";
 
@@ -77,70 +78,73 @@ export default function StaffLayout() {
   };
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[15.5rem_1fr]">
-      {/* Rail (desktop) */}
-      <aside className="sticky top-0 hidden h-dvh flex-col gap-6 overflow-y-auto bg-rail px-3 py-5 text-rail-ink lg:flex">
-        <Logo subtitle={tenant?.name} className="px-2 text-white" />
-        <SideNav admin={admin} />
-        <div className="mt-auto space-y-3 px-2">
-          <ThemeToggle className="text-rail-ink" />
-        </div>
-      </aside>
-
-      {/* Mobile navigation drawer */}
-      {mobileNav && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-scrim" onClick={() => setMobileNav(false)} />
-          <aside className="absolute inset-y-0 start-0 flex w-72 flex-col gap-6 overflow-y-auto bg-rail px-3 py-5 text-rail-ink">
-            <div className="flex items-center justify-between">
-              <Logo subtitle={tenant?.name} className="px-2 text-white" />
-              <Button variant="quiet" size="sm" className="text-rail-ink hover:bg-white/10" onClick={() => setMobileNav(false)} icon={<X className="size-4" />} aria-label="إغلاق القائمة" />
-            </div>
-            <SideNav admin={admin} onNavigate={() => setMobileNav(false)} />
-            <ThemeToggle className="mt-auto ms-2 text-rail-ink" />
-          </aside>
-        </div>
-      )}
-
-      <div className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-rule bg-paper/90 px-4 backdrop-blur lg:px-8">
-          <Button variant="quiet" size="sm" className="lg:hidden" onClick={() => setMobileNav(true)} icon={<Menu className="size-5" />} aria-label="فتح القائمة" />
-          <button
-            onClick={() => setPalette(true)}
-            className="flex h-9 flex-1 items-center gap-2 rounded-md border border-rule bg-sheet px-3 text-sm text-ink-3 transition-colors hover:border-ink-3 md:max-w-sm cursor-pointer"
-          >
-            <Search className="size-4" aria-hidden />
-            <span className="truncate">بحث سريع أو رقم شحنة</span>
-            <kbd className="ms-auto hidden rounded border border-rule px-1.5 text-2xs md:inline" dir="ltr">
-              Ctrl K
-            </kbd>
-          </button>
-          <div className="ms-auto flex items-center gap-1">
-            <div className="hidden text-end leading-tight sm:block">
-              <div className="text-sm text-ink">{user?.email}</div>
-              <div className="text-2xs text-ink-3">{user && ROLE_LABELS[user.role]}</div>
-            </div>
-            <Button variant="quiet" size="sm" onClick={() => setPasswordOpen(true)} icon={<KeyRound className="size-4" />} aria-label="تغيير كلمة المرور" title="تغيير كلمة المرور" />
-            <Button variant="quiet" size="sm" onClick={signOut} icon={<LogOut className="size-4" />} aria-label="تسجيل الخروج" title="تسجيل الخروج" />
+    <>
+      {tenant?.demo && <DemoBanner />}
+      <div className="min-h-dvh lg:grid lg:grid-cols-[15.5rem_1fr]">
+        {/* Rail (desktop) */}
+        <aside className="sticky top-0 hidden h-dvh flex-col gap-6 overflow-y-auto bg-rail px-3 py-5 text-rail-ink lg:flex">
+          <Logo subtitle={tenant?.name} className="px-2 text-white" />
+          <SideNav admin={admin} />
+          <div className="mt-auto space-y-3 px-2">
+            <ThemeToggle className="text-rail-ink" />
           </div>
-        </header>
-        <main className="mx-auto max-w-[84rem] px-4 py-6 lg:px-8">
-          <Outlet />
-        </main>
+        </aside>
+  
+        {/* Mobile navigation drawer */}
+        {mobileNav && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-scrim" onClick={() => setMobileNav(false)} />
+            <aside className="absolute inset-y-0 start-0 flex w-72 flex-col gap-6 overflow-y-auto bg-rail px-3 py-5 text-rail-ink">
+              <div className="flex items-center justify-between">
+                <Logo subtitle={tenant?.name} className="px-2 text-white" />
+                <Button variant="quiet" size="sm" className="text-rail-ink hover:bg-white/10" onClick={() => setMobileNav(false)} icon={<X className="size-4" />} aria-label="إغلاق القائمة" />
+              </div>
+              <SideNav admin={admin} onNavigate={() => setMobileNav(false)} />
+              <ThemeToggle className="mt-auto ms-2 text-rail-ink" />
+            </aside>
+          </div>
+        )}
+  
+        <div className="min-w-0">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-rule bg-paper/90 px-4 backdrop-blur lg:px-8">
+            <Button variant="quiet" size="sm" className="lg:hidden" onClick={() => setMobileNav(true)} icon={<Menu className="size-5" />} aria-label="فتح القائمة" />
+            <button
+              onClick={() => setPalette(true)}
+              className="flex h-9 flex-1 items-center gap-2 rounded-md border border-rule bg-sheet px-3 text-sm text-ink-3 transition-colors hover:border-ink-3 md:max-w-sm cursor-pointer"
+            >
+              <Search className="size-4" aria-hidden />
+              <span className="truncate">بحث سريع أو رقم شحنة</span>
+              <kbd className="ms-auto hidden rounded border border-rule px-1.5 text-2xs md:inline" dir="ltr">
+                Ctrl K
+              </kbd>
+            </button>
+            <div className="ms-auto flex items-center gap-1">
+              <div className="hidden text-end leading-tight sm:block">
+                <div className="text-sm text-ink">{user?.email}</div>
+                <div className="text-2xs text-ink-3">{user && ROLE_LABELS[user.role]}</div>
+              </div>
+              {!tenant?.demo && <Button variant="quiet" size="sm" onClick={() => setPasswordOpen(true)} icon={<KeyRound className="size-4" />} aria-label="تغيير كلمة المرور" title="تغيير كلمة المرور" />}
+              <Button variant="quiet" size="sm" onClick={signOut} icon={<LogOut className="size-4" />} aria-label="تسجيل الخروج" title="تسجيل الخروج" />
+            </div>
+          </header>
+          <main className="mx-auto max-w-[84rem] px-4 py-6 lg:px-8">
+            <Outlet />
+          </main>
+        </div>
+  
+        <CommandPalette open={palette} onClose={() => setPalette(false)} isAdmin={admin} />
+        <Modal open={passwordOpen} onClose={() => setPasswordOpen(false)} title="تغيير كلمة المرور" description="سيتم تسجيل خروجك من الأجهزة الأخرى.">
+          <ChangePasswordForm
+            email={user?.email}
+            onSubmit={async (current, next) => (await changeOwnPassword(current, next)).user}
+            onDone={(u) => {
+              passwordChanged(u);
+              setPasswordOpen(false);
+              toast("تم تغيير كلمة المرور");
+            }}
+          />
+        </Modal>
       </div>
-
-      <CommandPalette open={palette} onClose={() => setPalette(false)} isAdmin={admin} />
-      <Modal open={passwordOpen} onClose={() => setPasswordOpen(false)} title="تغيير كلمة المرور" description="سيتم تسجيل خروجك من الأجهزة الأخرى.">
-        <ChangePasswordForm
-          email={user?.email}
-          onSubmit={async (current, next) => (await changeOwnPassword(current, next)).user}
-          onDone={(u) => {
-            passwordChanged(u);
-            setPasswordOpen(false);
-            toast("تم تغيير كلمة المرور");
-          }}
-        />
-      </Modal>
-    </div>
+    </>
   );
 }

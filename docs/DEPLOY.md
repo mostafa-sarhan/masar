@@ -156,6 +156,23 @@ Restoring replaces the collections in the backup with their backed-up content. T
 - Errors: set `SENTRY_DSN` (API) and `VITE_SENTRY_DSN` + `SENTRY_ORIGIN` (web, rebuilt by `deploy.sh`).
   Empty = off; the Sentry SDK isn't even loaded then.
 
+## Demo mode
+
+Set in `.env.prod`, then `./deploy/deploy.sh`:
+
+```sh
+DEMO_MODE=true
+DEMO_WHATSAPP=201001234567          # number on the banner, digits only
+```
+
+- A separate company (`DEMO_TENANT_SLUG`, default `demo`) is created on start and reset every hour
+  (`DEMO_RESET_MINUTES`). Visitors stay signed in across resets. Real companies are never touched.
+- The login page shows one-click "Login as" buttons for every role and the banner
+  "نسخة تجريبية — البيانات بتتمسح كل ساعة" with the WhatsApp button; the banner also shows inside the demo company.
+- In the demo company, creating logins, changing passwords or roles, and creating API keys are disabled.
+- The landing page's "Try the live demo" button opens `/login` automatically when demo mode is on.
+  To send it to a different deployment instead, set `VITE_DEMO_URL` (needs a rebuild: `deploy.sh` does it).
+
 ## Security notes
 
 - MongoDB is not published on any port; the API and backups use a user limited to the `masar` database.

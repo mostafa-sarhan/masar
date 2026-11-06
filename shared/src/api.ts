@@ -77,6 +77,8 @@ export interface SessionTenant {
   trialEndsAt: string | null;
   currency: string;
   timezone: string;
+  // The demo company (demo mode): shows the demo banner; some actions are disabled.
+  demo?: boolean;
 }
 
 export interface TenantSettings {

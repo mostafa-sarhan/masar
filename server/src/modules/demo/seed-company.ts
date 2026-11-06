@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createHash } from "crypto";
 import { GOVERNORATES, normalizeArabic, type OrderStatus, type Role } from "@masar/shared";
 import { Tenant, PLAN_LIMITS } from "../tenants/tenant.model";
 import { User } from "../users/user.model";
@@ -23,10 +24,14 @@ export interface SeedOptions {
   password: string;
   now?: Date;
   orders?: number;
+  // Keep refresh tokens (demo resets shouldn't log visitors out; user ids are stable).
+  keepSessions?: boolean;
 }
 
 export const SEED_ROLES: Role[] = ["owner", "admin", "employee", "courier", "merchant"];
 export const seedEmail = (role: Role, domain: string) => `${role}@${domain}`;
+// The same id for a role's account on every reseed, so existing sessions stay valid.
+export const seedUserId = (slug: string, role: Role) => new mongoose.Types.ObjectId(createHash("sha256").update(`masar-seed:${slug}:${role}`).digest("hex").slice(0, 24));
 
 // Deterministic randomness: the same company every time, only the dates follow "now".
 function rng(seed: number) {
@@ -82,8 +87,11 @@ const HOUR = 60 * 60 * 1000;
 // Every tenant-owned collection, emptied for this tenant before seeding.
 const TENANT_MODELS = [Order, AuditEvent, Zone, Courier, Merchant, User, RefreshToken] as const;
 
-export async function wipeTenant(tenantId: mongoose.Types.ObjectId) {
-  for (const model of TENANT_MODELS) await (model as mongoose.Model<unknown>).deleteMany({ tenantId });
+export async function wipeTenant(tenantId: mongoose.Types.ObjectId, { keepSessions = false } = {}) {
+  for (const model of TENANT_MODELS) {
+    if (keepSessions && model === RefreshToken) continue;
+    await (model as mongoose.Model<unknown>).deleteMany({ tenantId });
+  }
 }
 
 export async function seedCompany(opts: SeedOptions) {
@@ -98,7 +106,7 @@ export async function seedCompany(opts: SeedOptions) {
 
   // Replace the company if it exists (same id, so links and bookmarks keep working).
   const existing = await Tenant.findOne({ slug: opts.slug });
-  if (existing) await wipeTenant(existing._id);
+  if (existing) await wipeTenant(existing._id, { keepSessions: opts.keepSessions });
   const tenantFields = {
     name: opts.name,
     slug: opts.slug,
@@ -120,7 +128,15 @@ export async function seedCompany(opts: SeedOptions) {
   const merchantPrices = new Map([[String(merchants[0]._id), [{ zone: greaterCairo._id, price: 40 }]]]);
 
   const password = await hashPassword(opts.password);
-  const account = (role: Role, extra: Record<string, unknown> = {}) => ({ tenantId, email: seedEmail(role, opts.emailDomain), role, password, mustChangePassword: false, ...extra });
+  const account = (role: Role, extra: Record<string, unknown> = {}) => ({
+    _id: seedUserId(opts.slug, role),
+    tenantId,
+    email: seedEmail(role, opts.emailDomain),
+    role,
+    password,
+    mustChangePassword: false,
+    ...extra,
+  });
   const users = await User.insertMany([
     account("owner"),
     account("admin"),

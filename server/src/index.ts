@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { connectDb, disconnectDb } from "./config/db";
 import { createApp } from "./app";
 import { startArchiveJob } from "./jobs/archive-orders.job";
+import { startDemoResetJob } from "./jobs/demo-reset.job";
 import { initMonitoring, captureError } from "./lib/monitoring";
 import { setShuttingDown } from "./lib/lifecycle";
 
@@ -22,6 +23,7 @@ async function main() {
   logger.info("MongoDB connected");
 
   const job = config.runJobs ? startArchiveJob() : null;
+  const demoJob = config.runJobs && config.demo.enabled ? startDemoResetJob() : null;
   const server = createApp().listen(config.port, () => logger.info(`Server running on port ${config.port}`));
 
   // Graceful shutdown: stop taking requests, let in-flight ones finish, then close the DB.
@@ -33,6 +35,7 @@ async function main() {
     setShuttingDown();
     logger.info(`${signal} received, shutting down`);
     job?.stop();
+    demoJob?.stop();
     server.close(async () => {
       await disconnectDb();
       process.exit(0);

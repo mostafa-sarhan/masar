@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth, adminOnly, staffOnly } from "../auth/auth.middleware";
 import * as c from "./merchants.controller";
 import { limits } from "../../lib/rate-limit";
+import { blockInDemo } from "../../lib/demo";
 
 const router = Router();
 
@@ -14,8 +15,8 @@ router.get("/", requireAuth, adminOnly, c.list);
 router.post("/", requireAuth, adminOnly, c.create);
 router.patch("/:id", requireAuth, adminOnly, c.update);
 router.put("/:id/zone-prices", requireAuth, adminOnly, c.setZonePrices);
-router.post("/:id/api-key", requireAuth, adminOnly, c.rotateKey);
-router.post("/:id/users", requireAuth, adminOnly, c.createUser);
+router.post("/:id/api-key", requireAuth, adminOnly, blockInDemo, c.rotateKey);
+router.post("/:id/users", requireAuth, adminOnly, blockInDemo, c.createUser);
 router.delete("/:id/api-key", requireAuth, adminOnly, c.revokeKey);
 
 export default router;

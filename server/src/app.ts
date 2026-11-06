@@ -28,6 +28,7 @@ import platformRoutes from "./modules/platform/platform.routes";
 import accessRequestRoutes from "./modules/platform/access-requests.routes";
 import zoneRoutes from "./modules/zones/zones.routes";
 import locationRoutes from "./modules/locations/locations.routes";
+import demoRoutes from "./modules/demo/demo.routes";
 
 export function createApp() {
   const app = express();
@@ -77,6 +78,7 @@ export function createApp() {
   app.use("/track", trackingRoutes);
   app.use("/dashboard", dashboardRoutes);
   app.use("/access-requests", accessRequestRoutes);
+  app.use("/demo", demoRoutes);
   app.use("/platform", platformRoutes);
 
   app.use(notFoundHandler);

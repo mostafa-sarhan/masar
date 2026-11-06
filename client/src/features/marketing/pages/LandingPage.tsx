@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { HeroWaybill } from "../components/HeroWaybill";
 import { AccessRequestForm } from "../components/AccessRequestForm";
 import { cn } from "@/lib/cn";
+import { useDemoInfo } from "@/features/demo/hooks/use-demo-info";
 
 const DEMO_URL = import.meta.env.VITE_DEMO_URL as string | undefined;
 
@@ -43,6 +44,9 @@ const PLANS: { plan: Plan; name: string; note: string }[] = [
 const count = (n: number | null, unit: string) => (n === null ? `${unit} بلا حد` : `${n.toLocaleString("en")} ${unit}`);
 
 export default function LandingPage() {
+  // The demo is either another deployment (VITE_DEMO_URL) or demo mode on this one.
+  const demo = useDemoInfo();
+  const demoHref = DEMO_URL || (demo?.enabled ? "/login" : null);
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-rule/70 bg-paper/90 backdrop-blur">
@@ -148,8 +152,8 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="md:justify-self-end">
-              {DEMO_URL ? (
-                <a href={DEMO_URL} className="inline-flex h-12 items-center rounded-md bg-tape px-6 font-semibold text-rail hover:brightness-105">افتح العرض التجريبي</a>
+              {demoHref ? (
+                <a href={demoHref} className="inline-flex h-12 items-center rounded-md bg-tape px-6 font-semibold text-rail hover:brightness-105">افتح العرض التجريبي</a>
               ) : (
                 <p className="rounded-md border border-white/20 px-5 py-4 text-sm">العرض المباشر يُتاح قريبًا. اطلب حسابًا تجريبيًا لشركتك في الأسفل.</p>
               )}

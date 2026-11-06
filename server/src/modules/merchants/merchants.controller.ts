@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { ok, created } from "../../lib/respond";
 import { idParams } from "../../lib/validate";
 import { AppError } from "../../lib/errors";
+import { isDemoTenant } from "../../lib/demo";
 import { createMerchantBody, updateMerchantBody, merchantOrderBody, merchantUserBody, merchantZonePricesBody } from "./merchants.schema";
 import * as merchants from "./merchants.service";
 
@@ -25,7 +26,8 @@ export async function list(req: Request, res: Response) {
 
 export async function create(req: Request, res: Response) {
   const { name, withApiKey } = createMerchantBody.parse(req.body);
-  created(res, await merchants.createMerchant(req, name, withApiKey));
+  // The demo company never creates API keys.
+  created(res, await merchants.createMerchant(req, name, withApiKey && !isDemoTenant(req.tenant)));
 }
 
 export async function update(req: Request, res: Response) {
