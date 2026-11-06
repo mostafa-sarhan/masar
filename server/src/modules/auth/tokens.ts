@@ -13,9 +13,11 @@ import { AppError } from "../../lib/errors";
 const ALGORITHM = "HS256";
 const ISSUER = "shipping-api";
 
+// Paths as the browser sees them (with COOKIE_PATH_PREFIX, e.g. /api/auth when the API is under /api).
+const withPrefix = (path: string) => (config.cookies.pathPrefix ? `${config.cookies.pathPrefix}${path === "/" ? "" : path}` || "/" : path);
 const REALM_CONFIG: Record<Realm, { access: string; refresh: string; accessPath: string; refreshPath: string }> = {
-  tenant: { access: "access_token", refresh: "refresh_token", accessPath: "/", refreshPath: "/auth" },
-  platform: { access: "platform_access", refresh: "platform_refresh", accessPath: "/platform", refreshPath: "/platform/auth" },
+  tenant: { access: "access_token", refresh: "refresh_token", accessPath: withPrefix("/"), refreshPath: withPrefix("/auth") },
+  platform: { access: "platform_access", refresh: "platform_refresh", accessPath: withPrefix("/platform"), refreshPath: withPrefix("/platform/auth") },
 };
 export const cookieNames = (realm: Realm) => REALM_CONFIG[realm];
 

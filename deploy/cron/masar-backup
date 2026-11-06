@@ -1,0 +1,6 @@
+# /etc/cron.d/masar-backup — daily backup of Masar production at 01:00 UTC (03:00 Cairo).
+# Dumps the masar-prod database into /var/backups/masar/prod; keeps 14 days (see docs/DEPLOY.md).
+# The demo instance isn't backed up: it's reset every hour.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+0 1 * * * root /opt/masar/deploy/backup-now.sh prod >> /var/log/masar-backup.log 2>&1

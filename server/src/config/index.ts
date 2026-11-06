@@ -42,6 +42,9 @@ export const config = {
     secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : true,
     sameSite: sameSite as "strict" | "lax" | "none",
     domain: process.env.COOKIE_DOMAIN || undefined,
+    // Where the API is mounted in the browser's URL space (e.g. "/api" when a proxy serves it under
+    // /api on the app's origin). Cookie paths are prefixed with it so the browser sends them.
+    pathPrefix: (process.env.COOKIE_PATH_PREFIX || "").replace(/\/$/, ""),
   },
   accessTokenTtlSec: 15 * 60,
   refreshTokenTtlSec: 7 * 24 * 60 * 60,

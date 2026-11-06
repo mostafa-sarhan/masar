@@ -11,7 +11,8 @@
     "migrate": "node dist/scripts/migrate.js",
     "platform-admin": "node dist/scripts/platform-admin.js",
     "typecheck": "tsc --noEmit",
-    "seed": "node dist/scripts/seed.js"
+    "seed": "node dist/scripts/seed.js",
+    "demo-reset": "node dist/scripts/demo-reset.js"
   },
   "license": "ISC",
   "dependencies": {

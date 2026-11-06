@@ -1,182 +1,163 @@
-# Deploying Masar to a VPS
+# Deploying Masar
 
-For a Hostinger VPS (Ubuntu) that already runs other Docker apps. Masar runs as its own compose
-project (`masar`): its own containers (`masar-*`), network (`masar-net`) and volumes (`masar-*`).
-Nothing here stops, prunes or rebinds anything that belongs to another app.
+Masar runs on the VPS (`ssh vps`) next to other apps, as two separate Docker compose projects:
 
-- App: `https://masar.mostafasarhan.tech`
-- API: `https://api.masar.mostafasarhan.tech`
+| Instance | URL | Compose project | Port (127.0.0.1) | Settings |
+|---|---|---|---|---|
+| Production | https://masar.mostafasarhan.tech | `masar-prod` | 8090 | `/opt/masar/.env.prod` |
+| Demo (`DEMO_MODE=true`) | https://demo.masar.mostafasarhan.tech | `masar-demo` | 8091 | `/opt/masar/.env.demo` |
 
-Both are on the same site (`mostafasarhan.tech`), so the auth cookies stay `SameSite=Strict`.
+Each instance has its own MongoDB (replica set + auth), network and volume, named after its project
+(`masar-prod_*`, `masar-demo_*`). Nothing is shared with each other or with the other apps.
 
-## What runs
-
-| Container | What | Ports on the server |
-|---|---|---|
-| `masar-mongo-1` | MongoDB 7, single-node replica set, auth + keyfile | none |
-| `masar-api-1` | API (Node 22, non-root, read-only filesystem) | `127.0.0.1:5080` |
-| `masar-web-1` | Web app (nginx, non-root): clean URLs, gzip, CSP and security headers | `127.0.0.1:5081` |
-| `masar-backup-1` | Daily `mongodump` to `./backups`, keeps 14 days | none |
-| `masar-proxy-1` | *Optional* (`edge` profile): HTTPS for both domains, HTTP→HTTPS | `80`, `443` |
-| `masar-certbot-1` | *Optional* (`edge` profile): renews the Let's Encrypt certificate | none |
-
-## 1. Before you start
-
-1. DNS: two **A records** pointing to the VPS IP: `masar.mostafasarhan.tech` and `api.masar.mostafasarhan.tech`.
-   Check with `dig +short masar.mostafasarhan.tech`.
-2. Docker with the compose plugin: `docker compose version` (v2.20+).
-3. See what is already running and which ports are taken:
-   ```sh
-   docker ps --format 'table {{.Names}}\t{{.Ports}}'
-   sudo ss -ltnp | grep -E ':(80|443|5080|5081)\b'
-   ```
-4. Decide how HTTPS is served:
-   - **A. Ports 80 and 443 are free** → use Masar's own proxy (`COMPOSE_PROFILES=edge`). Steps 2–5.
-   - **B. Another reverse proxy already owns 80/443** (nginx, Caddy, Traefik, Nginx Proxy Manager…) →
-     leave `COMPOSE_PROFILES` empty and add two hosts to that proxy (step 6).
-   If 5080/5081 are taken, pick other free ports for `API_PORT` / `WEB_PORT` in `.env.prod`.
-
-## 2. Get the code
-
-The repository is private: use a deploy key (read-only) or a fine-grained token.
+## How to update Masar later
 
 ```sh
-sudo mkdir -p /opt/masar && sudo chown $USER /opt/masar
-git clone https://github.com/mostafa-sarhan/masar.git /opt/masar
-cd /opt/masar
+ssh vps /opt/masar/deploy/update.sh
 ```
 
-## 3. Configure
+It pulls `main`, then for each instance: builds, backs up the database, runs the migrations, restarts and
+checks `/api/health`. Other apps are not touched. To update only one instance:
+`ssh vps 'cd /opt/masar && git pull && deploy/deploy.sh prod'` (or `demo`).
+
+## How it fits together
+
+```
+browser ──HTTPS──▶ host nginx (TLS by certbot)          /etc/nginx/sites-available/<domain>
+                        │  X-Forwarded-For = client address
+                        ▼
+                 127.0.0.1:8090 / 8091  ──▶  web container (nginx, non-root)
+                                               ├── /        the app (clean URLs → index.html)
+                                               └── /api/    → api container (Node 22, read-only fs)
+                                                                 └── mongo container (not published)
+```
+
+- The app and its API share one origin (`/api`), so auth cookies are `Secure`, `HttpOnly`,
+  `SameSite=Strict`, scoped to `/api` (`COOKIE_PATH_PREFIX=/api`); CORS allows only the site itself.
+- `TRUST_PROXY=2`: the host nginx and the web container. The host nginx overwrites `X-Forwarded-For`,
+  so clients can't fake their address past the rate limits.
+- Memory caps per instance: mongo 512 MB (WiredTiger cache 0.25 GB), api 384 MB (Node heap 256 MB),
+  web 64 MB, backup 256 MB.
+- Images are built on the server (`masar-api`, `masar-web`, tagged with the git commit).
+
+## Files on the server
+
+| Path | What |
+|---|---|
+| `/opt/masar` | Clone of `mostafa-sarhan/masar` via a read-only deploy key (`/root/.ssh/masar_github`, host alias `github-masar`) |
+| `/opt/masar/.env.prod`, `.env.demo` | Settings and secrets (chmod 600, git-ignored) |
+| `/opt/masar/deploy/secrets/<instance>/mongo-keyfile` | MongoDB replica-set keyfile (chmod 600) |
+| `/etc/nginx/sites-available/masar.mostafasarhan.tech`, `demo.masar.mostafasarhan.tech` | Host nginx sites (from `deploy/nginx/host/`), TLS added by certbot |
+| `/etc/cron.d/masar-backup` | Daily backup of production at 01:00 UTC (03:00 Cairo) |
+| `/var/backups/masar/prod` | Backups, `masar-YYYYMMDD-HHMMSS.archive.gz`, 14 days kept |
+| `/var/log/masar-backup.log` | Backup log |
+
+Keep a copy of both `.env` files and the keyfiles in your password manager: the databases can't be
+opened without them.
+
+## Common tasks
+
+Run these in `/opt/masar`. `deploy/lib.sh` holds the compose command; the long form is
+`docker compose -p masar-prod -f docker-compose.prod.yml --env-file .env.prod …`.
 
 ```sh
-./deploy/setup.sh          # creates .env.prod with random JWT / MongoDB secrets, and the MongoDB keyfile
-nano .env.prod             # LETSENCRYPT_EMAIL, COMPOSE_PROFILES (edge or empty), ports, optional Sentry / demo
+# Logs / status
+docker compose -p masar-prod -f docker-compose.prod.yml --env-file .env.prod logs -f api
+docker compose -p masar-prod -f docker-compose.prod.yml --env-file .env.prod ps
+
+# Platform admin (create, or reset the password; prints a one-time password)
+docker compose -p masar-prod -f docker-compose.prod.yml --env-file .env.prod exec api node dist/scripts/platform-admin.js you@example.com
+
+# Backup now
+deploy/backup-now.sh prod
+
+# Reset the demo now (it also resets itself every hour)
+docker compose -p masar-demo -f docker-compose.prod.yml --env-file .env.demo exec api node dist/scripts/demo-reset.js
 ```
 
-`.env.prod` and `deploy/secrets/` are git-ignored and readable by you only. Keep a copy of both in a
-password manager: the database can't be opened without the MongoDB passwords.
+Change a setting (for example `DEMO_WHATSAPP` in `.env.demo`): edit the file, then `deploy/deploy.sh demo`.
 
-## 4. Deploy
-
-```sh
-./deploy/deploy.sh
-```
-
-It checks that its ports are free (and refuses to start otherwise), builds both images, starts
-MongoDB, takes a backup, runs the migrations, starts everything and waits for the health checks.
-Re-run it for every update.
-
-## 5. HTTPS with the bundled proxy (option A)
-
-Once DNS points to the server:
-
-```sh
-./deploy/init-letsencrypt.sh
-```
-
-It gets one certificate for both domains; `masar-certbot-1` renews it automatically and the proxy reloads every 6 hours.
-
-## 6. HTTPS with your existing proxy (option B)
-
-Point the two domains at Masar's local ports. `TRUST_PROXY=1` (one proxy in front of the API).
-
-**nginx on the host** (`/etc/nginx/sites-available/masar`, then `certbot --nginx -d masar.mostafasarhan.tech -d api.masar.mostafasarhan.tech`):
-
-```nginx
-server {
-    server_name masar.mostafasarhan.tech;
-    location / { proxy_pass http://127.0.0.1:5081; proxy_set_header Host $host; proxy_set_header X-Forwarded-Proto $scheme; }
-}
-server {
-    server_name api.masar.mostafasarhan.tech;
-    client_max_body_size 3m;
-    location / {
-        proxy_pass http://127.0.0.1:5080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $remote_addr;   # overwrite, don't append
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-**Caddy**: `masar.mostafasarhan.tech { reverse_proxy 127.0.0.1:5081 }` and
-`api.masar.mostafasarhan.tech { reverse_proxy 127.0.0.1:5080 }`.
-
-**A proxy that runs in Docker** (Nginx Proxy Manager, Traefik…): `127.0.0.1` inside its container is not the
-server. Connect it to Masar's network and use the container names:
-
-```sh
-docker network connect masar-net <proxy-container>
-# upstreams: http://masar-web-1:8080 and http://masar-api-1:5000
-```
-
-## 7. First login
-
-```sh
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec api node dist/scripts/platform-admin.js you@example.com
-```
-
-It prints a one-time password. Sign in at `https://masar.mostafasarhan.tech/platform`, then create the first
-company (or approve an access request). Check: `curl https://api.masar.mostafasarhan.tech/health` → `{"data":{"ok":true,...}}`.
-
-## Updates and rollback
-
-```sh
-cd /opt/masar && git pull && ./deploy/deploy.sh
-```
-
-Every deploy backs up before migrating. To roll back: `git checkout <previous commit> && ./deploy/deploy.sh`,
-and restore the pre-deploy backup if a migration changed data (below).
-
-## Backups
-
-- Daily at `BACKUP_HOUR` (UTC; 1 = 03:00 Cairo) into `BACKUP_DIR` (default `/opt/masar/backups`),
-  files `masar-YYYYMMDD-HHMMSS.archive.gz`, older than `BACKUP_KEEP_DAYS` (14) deleted automatically.
-- Take one now: `docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm --entrypoint /scripts/backup.sh backup once`
-- **Copy them off the server** (a backup on the same disk doesn't survive a lost VPS), e.g. a nightly
-  `rsync -a /opt/masar/backups/ user@other-host:masar-backups/` or Hostinger's snapshot feature.
-
-### Restore (tested)
+### Restore a backup
 
 ```sh
 cd /opt/masar
-ls backups/                                     # pick a file
-docker compose -f docker-compose.prod.yml --env-file .env.prod stop api backup
-docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm --entrypoint /scripts/restore.sh backup /backups/masar-YYYYMMDD-HHMMSS.archive.gz
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --wait
+ls /var/backups/masar/prod
+C="docker compose -p masar-prod -f docker-compose.prod.yml --env-file .env.prod"
+$C stop api
+$C run --rm --entrypoint /scripts/restore.sh backup /backups/masar-YYYYMMDD-HHMMSS.archive.gz
+$C up -d --wait
 ```
 
-Restoring replaces the collections in the backup with their backed-up content. Tested on Nov 6: 160 orders /
-5 users → deleted → restored to 160 / 5; rotation removed files older than 14 days.
+Restoring replaces the collections in the backup with their backed-up content (tested: backup → delete →
+restore gave back every order and user; files older than 14 days are rotated out).
+Copy backups off the server too (a backup on the same disk doesn't survive a lost VPS), e.g. a nightly
+`rsync -a /var/backups/masar/ user@other-host:masar-backups/`.
 
-## Monitoring and logs
+### Rollback
 
-- Health: `/health` on the API (used by the Docker health checks; returns 503 while shutting down).
-- Logs: `docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f api` (JSON, rotated at 10 MB × 5).
-- Errors: set `SENTRY_DSN` (API) and `VITE_SENTRY_DSN` + `SENTRY_ORIGIN` (web, rebuilt by `deploy.sh`).
-  Empty = off; the Sentry SDK isn't even loaded then.
+`cd /opt/masar && git checkout <previous commit> && deploy/deploy.sh prod`, then restore the backup that
+`deploy.sh` took before migrating if the data needs to go back too. Return with `git checkout main`.
 
-## Demo mode
-
-Set in `.env.prod`, then `./deploy/deploy.sh`:
+## Setting up from scratch (what was done on Nov 6)
 
 ```sh
-DEMO_MODE=true
-DEMO_WHATSAPP=201001234567          # number on the banner, digits only
+# 0. Back up nginx
+tar czf /root/nginx-backup-$(date +%F-%H%M).tgz /etc/nginx
+
+# 1. Read-only deploy key, then the code
+ssh-keygen -t ed25519 -N "" -C masar-deploy -f /root/.ssh/masar_github
+cat >> /root/.ssh/config <<'EOF'
+Host github-masar
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/masar_github
+    IdentitiesOnly yes
+EOF
+# add /root/.ssh/masar_github.pub to the repo: GitHub → Settings → Deploy keys (read-only)
+git clone git@github-masar:mostafa-sarhan/masar.git /opt/masar
+
+# 2. Settings with fresh secrets, then start both instances
+cd /opt/masar
+deploy/setup.sh prod && deploy/setup.sh demo
+deploy/deploy.sh prod && deploy/deploy.sh demo
+
+# 3. Host nginx: new files only, then TLS
+cp deploy/nginx/host/masar.mostafasarhan.tech.conf /etc/nginx/sites-available/masar.mostafasarhan.tech
+cp deploy/nginx/host/demo.masar.mostafasarhan.tech.conf /etc/nginx/sites-available/demo.masar.mostafasarhan.tech
+ln -s /etc/nginx/sites-available/masar.mostafasarhan.tech /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/demo.masar.mostafasarhan.tech /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+certbot --nginx -d masar.mostafasarhan.tech --redirect --non-interactive
+certbot --nginx -d demo.masar.mostafasarhan.tech --redirect --non-interactive
+nginx -t && systemctl reload nginx
+
+# 4. Daily backups
+cp deploy/cron/masar-backup /etc/cron.d/masar-backup
+
+# 5. First platform admin (one-time password; change it at /platform)
+docker compose -p masar-prod -f docker-compose.prod.yml --env-file .env.prod exec api node dist/scripts/platform-admin.js you@example.com
 ```
 
-- A separate company (`DEMO_TENANT_SLUG`, default `demo`) is created on start and reset every hour
-  (`DEMO_RESET_MINUTES`). Visitors stay signed in across resets. Real companies are never touched.
-- The login page shows one-click "Login as" buttons for every role and the banner
-  "نسخة تجريبية — البيانات بتتمسح كل ساعة" with the WhatsApp button; the banner also shows inside the demo company.
-- In the demo company, creating logins, changing passwords or roles, and creating API keys are disabled.
-- The landing page's "Try the live demo" button opens `/login` automatically when demo mode is on.
-  To send it to a different deployment instead, set `VITE_DEMO_URL` (needs a rebuild: `deploy.sh` does it).
+Certificates renew with the server's existing `certbot.timer`.
+
+## Monitoring
+
+- Health: `https://masar.mostafasarhan.tech/api/health` (Docker health checks use it; 503 while shutting down).
+- Errors: set `SENTRY_DSN`, and `VITE_SENTRY_DSN` + `SENTRY_ORIGIN` in the instance's `.env`, then redeploy.
+  Empty = off; the Sentry SDK isn't loaded at all then.
+- Logs: JSON, rotated at 10 MB × 5 per container.
+
+## Demo instance
+
+`DEMO_MODE=true` in `.env.demo`: the demo company is seeded on start and reset every hour; visitors stay
+signed in across resets. The login page shows "Login as" buttons for every role and the banner
+"نسخة تجريبية — البيانات بتتمسح كل ساعة" (with a WhatsApp button when `DEMO_WHATSAPP` is set). In the demo
+company, new logins, password and role changes, and API keys are disabled. Production's landing page links
+"Try the live demo" to `https://demo.masar.mostafasarhan.tech/login` (`VITE_DEMO_URL` in `.env.prod`).
 
 ## Security notes
 
-- MongoDB is not published on any port; the API and backups use a user limited to the `masar` database.
-- Firewall: only SSH, 80 and 443 need to be open (`sudo ufw allow OpenSSH && sudo ufw allow 80,443/tcp`).
-  Ports 5080/5081 listen on 127.0.0.1 only.
-- Containers run as non-root with `no-new-privileges`; the API and web have read-only filesystems.
-- Rate limits are stored in MongoDB (`RATE_LIMIT_STORE=mongo`), so they survive restarts.
+- MongoDB isn't published; the API and backups use a user limited to the `masar` database.
+- Only the host nginx faces the internet (firewall: SSH, 80, 443). Masar listens on 127.0.0.1 only.
+- Containers run as non-root with `no-new-privileges`; the API and web containers have read-only filesystems.
+- Rate limits are stored in MongoDB, so they survive restarts.

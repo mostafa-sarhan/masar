@@ -1,5 +1,6 @@
 import type { ApiErrorBody, ErrorCode } from "@masar/shared";
 
+// Absolute in development (http://localhost:5000), "/api" in production (same origin, behind nginx).
 export const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
 
 export class ApiError extends Error {

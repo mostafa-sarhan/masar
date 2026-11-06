@@ -65,5 +65,5 @@ Dropped: replaced by Phase C (SaaS) and Phase E (design).
       Sentry hooks, draining health, deploy scripts — see [DEPLOY.md](DEPLOY.md)
 - [x] Demo mode: demo company, one-click logins, hourly reset, banner + WhatsApp, restricted actions
 - [x] Verified: 196 tests (shared 11, server 178, client 7), typecheck, lint, build, 17 headless Chrome flows
-- [ ] Deploy to the VPS (docs/DEPLOY.md) — waiting for go-ahead
+- [ ] Deploy to the VPS: masar.mostafasarhan.tech + demo.masar.mostafasarhan.tech, API under /api (docs/DEPLOY.md)
 - [ ] Later: guided tour in the demo; off-site copy of backups

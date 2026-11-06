@@ -14,7 +14,8 @@ function contentSecurityPolicy(apiUrl: string, sentryDsn?: string): Plugin {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:", // company logos (https only)
     "font-src 'self'",
-    `connect-src 'self' ${apiUrl}${sentryOrigin ? ` ${sentryOrigin}` : ''}`,
+    // A relative API URL ("/api", same origin) is covered by 'self'.
+    `connect-src 'self'${apiUrl.startsWith('/') ? '' : ` ${apiUrl}`}${sentryOrigin ? ` ${sentryOrigin}` : ''}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
