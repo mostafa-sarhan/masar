@@ -15,7 +15,8 @@ if [ -z "$owner" ] && ss -ltnH "( sport = :${WEB_PORT} )" | grep -q .; then
   echo "Port ${WEB_PORT} is already used by a process on this server. Change WEB_PORT in $env." >&2; exit 1
 fi
 
-export APP_VERSION="${APP_VERSION:-$(git rev-parse --short HEAD)}"
+# The commit being deployed: from the VERSION file that deploy/update.sh ships (the server has no git).
+export APP_VERSION="${APP_VERSION:-$(cat VERSION 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)}"
 echo "==> [$project] building $APP_VERSION"
 compose build
 

@@ -12,13 +12,17 @@ Each instance has its own MongoDB (replica set + auth), network and volume, name
 
 ## How to update Masar later
 
+On your Mac, in the repository, after committing:
+
 ```sh
-ssh vps /opt/masar/deploy/update.sh
+deploy/update.sh
 ```
 
-It pulls `main`, then for each instance: builds, backs up the database, runs the migrations, restarts and
-checks `/api/health`. Other apps are not touched. To update only one instance:
-`ssh vps 'cd /opt/masar && git pull && deploy/deploy.sh prod'` (or `demo`).
+It ships the committed code (`git archive HEAD`: tracked files only, never `.env` files, `node_modules` or
+local data) over `ssh vps` into `/opt/masar`, keeping the server's `.env.prod`, `.env.demo`,
+`deploy/secrets/` and backups. Then, for each instance, it builds, backs up the database, runs the
+migrations, restarts and checks `/api/health`. Other apps are not touched.
+Only one instance: `deploy/update.sh prod` (or `demo`).
 
 ## How it fits together
 
@@ -44,7 +48,7 @@ browser ──HTTPS──▶ host nginx (TLS by certbot)          /etc/nginx/sit
 
 | Path | What |
 |---|---|
-| `/opt/masar` | Clone of `mostafa-sarhan/masar` via a read-only deploy key (`/root/.ssh/masar_github`, host alias `github-masar`) |
+| `/opt/masar` | The code, shipped from the Mac by `deploy/update.sh` (no git on the server; `VERSION` holds the commit) |
 | `/opt/masar/.env.prod`, `.env.demo` | Settings and secrets (chmod 600, git-ignored) |
 | `/opt/masar/deploy/secrets/<instance>/mongo-keyfile` | MongoDB replica-set keyfile (chmod 600) |
 | `/etc/nginx/sites-available/masar.mostafasarhan.tech`, `demo.masar.mostafasarhan.tech` | Host nginx sites (from `deploy/nginx/host/`), TLS added by certbot |
@@ -95,26 +99,15 @@ Copy backups off the server too (a backup on the same disk doesn't survive a los
 
 ### Rollback
 
-`cd /opt/masar && git checkout <previous commit> && deploy/deploy.sh prod`, then restore the backup that
-`deploy.sh` took before migrating if the data needs to go back too. Return with `git checkout main`.
-
 ## Setting up from scratch (what was done on Nov 6)
 
 ```sh
 # 0. Back up nginx
 tar czf /root/nginx-backup-$(date +%F-%H%M).tgz /etc/nginx
 
-# 1. Read-only deploy key, then the code
-ssh-keygen -t ed25519 -N "" -C masar-deploy -f /root/.ssh/masar_github
-cat >> /root/.ssh/config <<'EOF'
-Host github-masar
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/masar_github
-    IdentitiesOnly yes
-EOF
-# add /root/.ssh/masar_github.pub to the repo: GitHub → Settings → Deploy keys (read-only)
-git clone git@github-masar:mostafa-sarhan/masar.git /opt/masar
+# 1. The code (from the Mac, in the repository): ships HEAD into /opt/masar; the first run stops at
+#    "Missing .env.prod" because the settings don't exist yet
+deploy/update.sh
 
 # 2. Settings with fresh secrets, then start both instances
 cd /opt/masar
