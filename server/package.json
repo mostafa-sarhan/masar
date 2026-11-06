@@ -15,6 +15,8 @@
   },
   "license": "ISC",
   "dependencies": {
+    "@masar/shared": "*",
+    "@sentry/node": "^11.11.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -30,8 +32,7 @@
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
     "redis": "^6.3.1",
-    "zod": "^4.6.7",
-    "@masar/shared": "*"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

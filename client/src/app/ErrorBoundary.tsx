@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
+import { captureError } from "@/lib/monitoring";
 
 // Last line of defence: a broken page shows a way out instead of a blank screen.
 export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -9,6 +10,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
   }
   componentDidCatch(error: unknown) {
     console.error(error);
+    captureError(error);
   }
   render() {
     if (!this.state.failed) return this.props.children;

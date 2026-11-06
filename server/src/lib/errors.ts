@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { ZodError } from "zod";
 
 import type { ErrorCode } from "@masar/shared";
+import { captureError } from "./monitoring";
 
 export type { ErrorCode };
 
@@ -45,7 +46,10 @@ function toAppError(err: unknown): AppError {
 // Every error leaves the API as { error: { code, message, details?, requestId } }.
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   const appError = toAppError(err);
-  if (appError.status >= 500) req.log?.error({ err }, "Unhandled error");
+  if (appError.status >= 500) {
+    req.log?.error({ err }, "Unhandled error");
+    captureError(err, { requestId: req.id, method: req.method, path: req.path });
+  }
   else req.log?.debug({ code: appError.code }, appError.message);
 
   res.status(appError.status).json({

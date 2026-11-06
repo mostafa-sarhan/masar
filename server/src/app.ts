@@ -7,6 +7,7 @@ import { randomUUID } from "crypto";
 import { config } from "./config";
 import { logger } from "./lib/logger";
 import { isDbReady } from "./config/db";
+import { isShuttingDown } from "./lib/lifecycle";
 import { errorHandler, notFoundHandler } from "./lib/errors";
 import { limits } from "./lib/rate-limit";
 import { originCheck } from "./lib/origin-check";
@@ -53,9 +54,12 @@ export function createApp() {
   app.use(limits.global);
   app.use(originCheck);
 
+  // Used by Docker healthchecks and the reverse proxy: 200 only when the DB is up and we're not shutting down.
   app.get("/health", (_req, res) => {
     const db = isDbReady();
-    res.status(db ? 200 : 503).json({ data: { ok: db, db: db ? "up" : "down" } });
+    const ok = db && !isShuttingDown();
+    res.setHeader("Cache-Control", "no-store");
+    res.status(ok ? 200 : 503).json({ data: { ok, db: db ? "up" : "down", ...(isShuttingDown() && { shuttingDown: true }) } });
   });
 
   app.use("/auth", authRoutes);

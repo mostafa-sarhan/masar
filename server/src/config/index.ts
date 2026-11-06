@@ -53,6 +53,11 @@ export const config = {
     maxBytes: num("IMPORT_MAX_BYTES", 2 * 1024 * 1024),
     maxRows: num("IMPORT_MAX_ROWS", 1000),
   },
+  sentry: {
+    dsn: process.env.SENTRY_DSN || "",
+    environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development",
+    release: process.env.APP_VERSION || undefined,
+  },
   rateLimits: {
     globalPer15Min: num("RATE_LIMIT_GLOBAL_PER_15MIN", 1000),
     loginIpPer15Min: num("RATE_LIMIT_LOGIN_IP_PER_15MIN", 20),

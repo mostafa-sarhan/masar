@@ -6,9 +6,12 @@ import { AuthProvider } from "./app/AuthProvider";
 import { ErrorBoundary } from "./app/ErrorBoundary";
 import { FeedbackProvider } from "./components/ui/FeedbackProvider";
 import { redirectLegacyHash } from "./app/legacy-hash";
+import { initMonitoring, captureError } from "./lib/monitoring";
 import "./styles/index.css";
 
 redirectLegacyHash();
+initMonitoring();
+window.addEventListener("unhandledrejection", (e) => captureError(e.reason));
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
