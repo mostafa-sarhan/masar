@@ -81,3 +81,12 @@ describe("request limits", () => {
 
   void PASSWORD;
 });
+
+describe("security headers", () => {
+  it("leaves HSTS to the TLS proxy but keeps helmet's other headers", async () => {
+    const res = await request(app).get("/health");
+    expect(res.headers["strict-transport-security"]).toBeUndefined();
+    expect(res.headers["x-content-type-options"]).toBe("nosniff");
+    expect(res.headers["content-security-policy"]).toBeDefined();
+  });
+});

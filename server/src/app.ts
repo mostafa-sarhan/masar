@@ -48,7 +48,8 @@ export function createApp() {
       autoLogging: { ignore: (req) => req.url === "/health" },
     })
   );
-  app.use(helmet());
+  // HSTS is sent once, by the proxy that terminates TLS (host nginx), not twice.
+  app.use(helmet({ strictTransportSecurity: false }));
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
   app.use(cookieParser());
   app.use(express.json({ limit: config.bodyLimit }));
