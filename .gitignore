@@ -4,7 +4,13 @@ coverage
 .env
 .env.*
 !.env.example
+!.env.prod.example
 *.log
 .DS_Store
 .vercel
 screenshots/tmp
+
+# Production secrets and backups
+.env.prod
+deploy/secrets/
+backups/

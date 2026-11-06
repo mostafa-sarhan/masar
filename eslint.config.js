@@ -18,6 +18,11 @@ export default tseslint.config(
     files: ["server/**/*.ts", "shared/**/*.ts"],
     languageOptions: { globals: globals.node },
   },
+  // MongoDB init scripts run inside mongosh (db and process are its globals)
+  {
+    files: ["deploy/mongo/**/*.js"],
+    languageOptions: { globals: { ...globals.node, db: "readonly" }, sourceType: "script" },
+  },
   // Plain scripts served as-is (theme-init runs before the app)
   {
     files: ["client/public/**/*.js"],

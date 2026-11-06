@@ -1,0 +1,172 @@
+# Production stack. Everything is configured from .env.prod (copy .env.prod.example).
+#   ./deploy/deploy.sh                  build, migrate, start (see docs/DEPLOY.md)
+#
+# Isolation from other apps on the same server: its own project name, network and volumes;
+# web and API publish only on 127.0.0.1. The HTTPS edge proxy (ports 80/443) is the "edge"
+# profile: enable it only if nothing else on the server uses 80/443. Otherwise point your
+# existing reverse proxy at 127.0.0.1:${WEB_PORT} and 127.0.0.1:${API_PORT}.
+name: masar
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    logging: *logging
+    # The keyfile (needed for auth on a replica set) must be owned by mongodb and not world-readable.
+    entrypoint:
+      - bash
+      - -c
+      - |
+        cp /run/secrets/mongo-keyfile /tmp/keyfile && chmod 400 /tmp/keyfile && chown 999:999 /tmp/keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /tmp/keyfile --wiredTigerCacheSizeGB ${MONGO_CACHE_GB:-0.5}
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_DB: masar
+      MONGO_APP_USER: ${MONGO_APP_USER}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+      - ./deploy/secrets/mongo-keyfile:/run/secrets/mongo-keyfile:ro
+      - ./deploy/mongo/create-app-user.js:/docker-entrypoint-initdb.d/create-app-user.js:ro
+    # Initiates the replica set on first start; healthy once this node is primary.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval
+          "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }; db.hello().isWritablePrimary || quit(1)"
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    networks: [masar]
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+      args: { APP_VERSION: "${APP_VERSION:-dev}" }
+    image: masar-api:${APP_VERSION:-latest}
+    restart: unless-stopped
+    logging: *logging
+    init: true
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      mongo: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://${MONGO_APP_USER}:${MONGO_APP_PASSWORD}@mongo:27017/masar?replicaSet=rs0&authSource=masar
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: https://${APP_DOMAIN}
+      COOKIE_SECURE: "true"
+      COOKIE_SAMESITE: strict
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      RATE_LIMIT_STORE: mongo
+      RUN_JOBS: "true"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: production
+      APP_VERSION: ${APP_VERSION:-dev}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      DEMO_TENANT_SLUG: ${DEMO_TENANT_SLUG:-demo}
+      DEMO_TENANT_NAME: ${DEMO_TENANT_NAME:-}
+      DEMO_WHATSAPP: ${DEMO_WHATSAPP:-}
+    ports:
+      - "127.0.0.1:${API_PORT:-5080}:5000"
+    networks: [masar]
+
+  web:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+      args:
+        VITE_API_URL: https://${API_DOMAIN}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_DEMO_URL: ${VITE_DEMO_URL:-}
+        VITE_APP_VERSION: ${APP_VERSION:-dev}
+    image: masar-web:${APP_VERSION:-latest}
+    restart: unless-stopped
+    logging: *logging
+    read_only: true
+    # nginx runs as uid 101 (nginx-unprivileged); the template is rendered into conf.d at start.
+    tmpfs:
+      - /tmp:uid=101,gid=101
+      - /var/cache/nginx:uid=101,gid=101
+      - /etc/nginx/conf.d:uid=101,gid=101
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      API_ORIGIN: https://${API_DOMAIN}
+      SENTRY_ORIGIN: ${SENTRY_ORIGIN:-}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-5081}:8080"
+    networks: [masar]
+
+  # Daily backups of the app database to ./backups on the host (kept BACKUP_KEEP_DAYS days).
+  backup:
+    image: mongo:7.0
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      mongo: { condition: service_healthy }
+    entrypoint: ["/scripts/backup.sh"]
+    environment:
+      MONGO_BACKUP_URI: mongodb://${MONGO_APP_USER}:${MONGO_APP_PASSWORD}@mongo:27017/masar?replicaSet=rs0&authSource=masar
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_HOUR: ${BACKUP_HOUR:-1}
+    volumes:
+      - ./deploy/backup:/scripts:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    networks: [masar]
+
+  # ---- HTTPS edge (profile "edge"): only when ports 80/443 are free on the server ----
+  proxy:
+    profiles: [edge]
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    logging: *logging
+    depends_on: [web, api]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/nginx/proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./deploy/nginx/snippets:/etc/nginx/snippets:ro
+      - letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    # Reload every 6 hours to pick up renewed certificates.
+    command: ["/bin/sh", "-c", "while :; do sleep 6h; nginx -s reload; done & exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
+    networks: [masar]
+
+  certbot:
+    profiles: [edge]
+    image: certbot/certbot:v3.0.1
+    restart: unless-stopped
+    logging: *logging
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: ["/bin/sh", "-c", "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"]
+    networks: [masar]
+
+volumes:
+  mongo-data:
+    name: masar-prod-mongo-data
+  letsencrypt:
+    name: masar-letsencrypt
+  certbot-www:
+    name: masar-certbot-www
+
+networks:
+  masar:
+    name: masar-net

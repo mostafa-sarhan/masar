@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+.git
+docs
+deploy/secrets
+backups
+*.log
+.DS_Store
