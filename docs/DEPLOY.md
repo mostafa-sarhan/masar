@@ -42,7 +42,8 @@ browser ──HTTPS──▶ host nginx (TLS by certbot)          /etc/nginx/sit
   so clients can't fake their address past the rate limits.
 - Memory caps per instance: mongo 512 MB (WiredTiger cache 0.25 GB), api 384 MB (Node heap 256 MB),
   web 64 MB, backup 256 MB.
-- Images are built on the server (`masar-api`, `masar-web`, tagged with the git commit).
+- Images are built on the server, per instance (`masar-prod-api`, `masar-prod-web`, `masar-demo-…`),
+  tagged with the commit.
 
 ## Files on the server
 

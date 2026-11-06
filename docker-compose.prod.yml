@@ -52,7 +52,8 @@ services:
       context: .
       dockerfile: server/Dockerfile
       args: { APP_VERSION: "${APP_VERSION:-dev}" }
-    image: masar-api:${APP_VERSION:-latest}
+    # Images are named per project: the two instances' web builds differ (build args), so they must not share a tag.
+    image: ${COMPOSE_PROJECT_NAME:-masar}-api:${APP_VERSION:-latest}
     restart: unless-stopped
     logging: *logging
     mem_limit: 384m
@@ -96,7 +97,7 @@ services:
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
         VITE_DEMO_URL: ${VITE_DEMO_URL:-}
         VITE_APP_VERSION: ${APP_VERSION:-dev}
-    image: masar-web:${APP_VERSION:-latest}
+    image: ${COMPOSE_PROJECT_NAME:-masar}-web:${APP_VERSION:-latest}
     restart: unless-stopped
     logging: *logging
     mem_limit: 64m
