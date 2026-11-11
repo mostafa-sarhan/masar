@@ -105,6 +105,7 @@ export const tenantSummary = (t: TenantDoc) => ({
   plan: t.plan,
   status: t.status,
   trialEndsAt: t.trialEndsAt,
+  isTest: !!t.isTest,
   limits: t.limits,
   createdAt: t.createdAt,
 });

@@ -147,7 +147,20 @@ function Tenants({ onCreated }: { onCreated(c: Credentials): void }) {
           rows={list.result?.items ?? []}
           rowKey={(t) => t._id}
           columns={[
-            { key: "name", header: "الشركة", primary: true, cell: (t) => <div className="leading-tight"><div className="font-medium text-ink">{t.name}</div><div dir="ltr" className="num text-xs text-ink-3 text-start">{t.slug}</div></div> },
+            {
+              key: "name",
+              header: "الشركة",
+              primary: true,
+              cell: (t) => (
+                <div className="leading-tight">
+                  <div className="flex items-center gap-2 font-medium text-ink">
+                    {t.name}
+                    {t.isTest && <Badge tone="warn">شركة تجريبية</Badge>}
+                  </div>
+                  <div dir="ltr" className="num text-xs text-ink-3 text-start">{t.slug}</div>
+                </div>
+              ),
+            },
             { key: "status", header: "الحالة", cell: (t) => <Badge tone={TENANT_STATUS[t.status].tone}>{TENANT_STATUS[t.status].label}</Badge> },
             {
               key: "plan",
@@ -312,6 +325,8 @@ const ACTIONS: Record<string, string> = {
   UPDATE_TENANT: "تعديل شركة",
   APPROVE_ACCESS_REQUEST: "قبول طلب انضمام",
   REJECT_ACCESS_REQUEST: "رفض طلب انضمام",
+  SEED_TEST_TENANT: "إنشاء الشركة التجريبية",
+  REMOVE_TEST_TENANT: "حذف الشركة التجريبية",
 };
 
 // Read audits store the API path as their target; show the screen it belongs to instead.

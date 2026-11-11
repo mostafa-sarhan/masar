@@ -14,6 +14,9 @@ const tenantSchema = new mongoose.Schema(
     plan: { type: String, enum: PLANS, default: "trial", required: true },
     status: { type: String, enum: TENANT_STATUSES, default: "trial", required: true },
     trialEndsAt: { type: Date, default: null },
+    // A test company (sample data on a real instance): shown as such in /platform, and the only kind
+    // `npm run remove-test-tenant` will delete.
+    isTest: { type: Boolean, default: false },
     limits: {
       maxUsers: { type: Number, default: null, min: 1 },
       maxOrdersPerMonth: { type: Number, default: null, min: 1 },

@@ -105,6 +105,8 @@ export interface TenantRow {
   plan: Plan;
   status: TenantStatus;
   trialEndsAt: string | null;
+  // Sample-data company (removable with `npm run remove-test-tenant`), never a customer.
+  isTest?: boolean;
   limits: { maxUsers: number | null; maxOrdersPerMonth: number | null };
   createdAt: string;
 }

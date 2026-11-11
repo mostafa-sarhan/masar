@@ -11,9 +11,11 @@ import { AuditEvent } from "../audit/audit-event.model";
 import { RefreshToken } from "../auth/refresh-token.model";
 import { hashPassword } from "../auth/password";
 import { pickZone } from "../zones/zones.service";
+import { generateApiKey } from "../merchants/api-keys";
 
 // A complete, realistic shipping company: one account per role, couriers, merchants, zones and
-// three weeks of orders in every status. Used by `npm run seed` and by demo mode's hourly reset.
+// weeks of orders in every status. Used by `npm run seed`, demo mode's hourly reset and the test company
+// on production (`npm run seed-test-tenant`).
 // Re-running replaces the company with the same slug (and only that company).
 
 export interface SeedOptions {
@@ -26,6 +28,12 @@ export interface SeedOptions {
   orders?: number;
   // Keep refresh tokens (demo resets shouldn't log visitors out; user ids are stable).
   keepSessions?: boolean;
+  // How far back the orders go (default 21 days).
+  days?: number;
+  // Mark the company as a test company (see Tenant.isTest).
+  isTest?: boolean;
+  // Give the merchant account's merchant an API key; the key is returned once.
+  merchantApiKey?: boolean;
 }
 
 export const SEED_ROLES: Role[] = ["owner", "admin", "employee", "courier", "merchant"];
@@ -112,6 +120,7 @@ export async function seedCompany(opts: SeedOptions) {
     slug: opts.slug,
     plan: "pro" as const,
     status: "active" as const,
+    isTest: !!opts.isTest,
     trialEndsAt: null,
     limits: { ...PLAN_LIMITS.pro },
     settings: { fees: { courier: 20, company: 45 }, merchantDeductions: ["company" as const], archiveAfterDays: 3, timezone: "Africa/Cairo", currency: "EGP", labelName: opts.name },
@@ -126,6 +135,11 @@ export async function seedCompany(opts: SeedOptions) {
   const greaterCairo = zones.find((z) => z.name === "القاهرة الكبرى")!;
   await Merchant.updateOne({ tenantId, _id: merchants[0]._id }, { $set: { zonePrices: [{ zone: greaterCairo._id, price: 40 }], companyFee: 40 } });
   const merchantPrices = new Map([[String(merchants[0]._id), [{ zone: greaterCairo._id, price: 40 }]]]);
+  // Only its SHA-256 is stored, as for any merchant; the key itself is returned once.
+  const apiKey = opts.merchantApiKey ? generateApiKey() : null;
+  if (apiKey) {
+    await Merchant.updateOne({ tenantId, _id: merchants[0]._id }, { $set: { apiKeyHash: apiKey.hash, apiKeyPrefix: apiKey.prefix, apiKeyCreatedAt: now } });
+  }
 
   const password = await hashPassword(opts.password);
   const account = (role: Role, extra: Record<string, unknown> = {}) => ({
@@ -152,7 +166,7 @@ export async function seedCompany(opts: SeedOptions) {
   const orders = [];
   const barcodes = new Set<string>();
   for (let i = 0; i < count; i++) {
-    const ageDays = Math.pow(random(), 1.6) * 21;
+    const ageDays = Math.pow(random(), 1.6) * (opts.days ?? 21);
     const created = new Date(now.getTime() - ageDays * DAY - random() * 3 * HOUR);
     const governorate = weighted(DESTINATIONS);
     const city = pick(GOVERNORATES.find((g) => g.code === governorate)!.cities).code;
@@ -235,5 +249,10 @@ export async function seedCompany(opts: SeedOptions) {
     { timestamps: false } as mongoose.InsertManyOptions
   );
 
-  return { tenant: tenant!, accounts: SEED_ROLES.map((role) => ({ role, email: seedEmail(role, opts.emailDomain) })), orders: inserted.length };
+  return {
+    tenant: tenant!,
+    accounts: SEED_ROLES.map((role) => ({ role, email: seedEmail(role, opts.emailDomain) })),
+    orders: inserted.length,
+    merchantApiKey: apiKey?.key ?? null,
+  };
 }

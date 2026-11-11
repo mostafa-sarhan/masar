@@ -12,7 +12,9 @@
     "platform-admin": "node dist/scripts/platform-admin.js",
     "typecheck": "tsc --noEmit",
     "seed": "node dist/scripts/seed.js",
-    "demo-reset": "node dist/scripts/demo-reset.js"
+    "demo-reset": "node dist/scripts/demo-reset.js",
+    "seed-test-tenant": "node dist/scripts/seed-test-tenant.js",
+    "remove-test-tenant": "node dist/scripts/remove-test-tenant.js"
   },
   "license": "ISC",
   "dependencies": {

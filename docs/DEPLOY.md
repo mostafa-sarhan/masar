@@ -137,6 +137,26 @@ docker compose -p masar-prod -f docker-compose.prod.yml --env-file .env.prod exe
 
 Certificates renew with the server's existing `certbot.timer`.
 
+## Test company on production
+
+A sample company to try every role on the live site, flagged `isTest` (shown as "شركة تجريبية" in `/platform`)
+so it's never mistaken for a customer. Accounts `owner|admin|employee|courier|merchant@masar-test.local`,
+password `Test123456` (or `TEST_TENANT_PASSWORD`), no forced password change; the merchant also gets an API key,
+printed once. 150 orders in every status over the last 30 days, couriers, merchants, zones and prices.
+
+```sh
+cd /opt/masar
+C="docker compose -p masar-prod -f docker-compose.prod.yml --env-file .env.prod"
+deploy/backup-now.sh prod                                  # first, always
+$C exec -T api npm run -s seed-test-tenant                 # create (or recreate) it
+$C exec -T api npm run -s remove-test-tenant               # dry run: lists what would be deleted
+$C exec -T api npm run -s remove-test-tenant -- --confirm  # delete it and ALL its data
+```
+
+The removal deletes the company and every document it owns (users, orders, couriers, merchants, zones,
+audit events, login sessions) in one transaction, and records it in the platform audit log. It refuses any
+company that isn't flagged `isTest`, so it can't remove a real customer. Seeding never replaces a real company either.
+
 ## Monitoring
 
 - Health: `https://masar.mostafasarhan.tech/api/health` (Docker health checks use it; 503 while shutting down).
